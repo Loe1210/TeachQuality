@@ -8,6 +8,8 @@ import cn.hutool.crypto.symmetric.AES;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.vtmer.microteachingquality.common.component.EvaluationMessageProducer;
+import com.vtmer.microteachingquality.common.constant.topic.MajorEvaluationTopic;
 import com.vtmer.microteachingquality.common.constant.enums.UserTypeConstant;
 import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.mapper.*;
@@ -23,7 +25,6 @@ import com.vtmer.microteachingquality.service.MajorEvaluationProcessService;
 import com.vtmer.microteachingquality.util.UserUtil;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -58,8 +59,6 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     @Resource
     private MajorMapper majorMapper;
     @Resource
-    private RocketMQTemplate rocketMQTemplate;
-    @Resource
     private MasterEvaluationMapper masterEvaluationMapper;
     @Resource
     private LeaderEvaluationMapper leaderEvaluationMapper;
@@ -76,6 +75,8 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
 
     @Resource
     private MajorEvaluationFileService majorEvaluationFileService;
+    @Resource
+    private EvaluationMessageProducer evaluationMessageProducer;
 
 
     @SneakyThrows
@@ -92,7 +93,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
         Long processId = IdUtil.getSnowflake(0, 0).nextId();
         MajorEvaluationProcess majorEvaluationProcess = new MajorEvaluationProcess(processId, majorId, user.getId(), LocalDateTime.now().getYear() + "级");
         if (majorEvaluationProcess.insert()) {
-            //rocketMQTemplate.getProducer().send(new Message(MajorEvaluationTopic.MAJOR_EVALUATION, MajorEvaluationTopic.PROCESS_CREATED, new UserMessageDTO<>(user.getId(), majorEvaluationProcessId).toString().getBytes()));
+            evaluationMessageProducer.sendMajorEvaluationMessage(MajorEvaluationTopic.PROCESS_CREATED, user.getId(), processId);
             log.info("用户id {} {} 创建专业评审流程成功，流程id：{}", user.getId(), user.getRealName(), processId);
             return true;
 
@@ -267,7 +268,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
 
 
         if (majorEvaluationFile.insert()) {
-            //rocketMQTemplate.getProducer().send(new Message(MajorEvaluationTopic.MAJOR_EVALUATION, MajorEvaluationTopic.PRINCIPAL_UPLOAD, new UserMessageDTO<>(user.getId(), majorEvaluationProcessId).toString().getBytes()));
+            evaluationMessageProducer.sendMajorEvaluationMessage(MajorEvaluationTopic.PRINCIPAL_UPLOAD, user.getId(), majorEvaluationProcessId);
             FileUtil.writeBytes(file.getBytes(), filePath);
 
             UpdateWrapper<MajorEvaluationProcess> updateWrapper = new UpdateWrapper<>();
@@ -325,7 +326,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
             throw new CustomException("当前已提交评审，请使用更新接口");
         }
         persistMasterEvaluation(masterEvaluateBO, process, currentUser.getId(), false);
-        //rocketMQTemplate.getProducer().send(new Message(MajorEvaluationTopic.MAJOR_EVALUATION, MajorEvaluationTopic.EXPERT_SUBMIT, new UserMessageDTO<>(currentUser.getId(), masterEvaluateBO.getMajorEvaluationProcessId()).toString().getBytes()));
+        evaluationMessageProducer.sendMajorEvaluationMessage(MajorEvaluationTopic.EXPERT_SUBMIT, currentUser.getId(), majorEvaluationProcessId);
         return true;
     }
 
@@ -373,6 +374,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
             updateWrapper.eq("id", process.getId());
             process.update(updateWrapper);
             log.info("修改状态完成");
+            evaluationMessageProducer.sendMajorEvaluationMessage(MajorEvaluationTopic.EXPERT_LEADER_SUBMIT, user.getId(), majorEvaluationProcessId);
             return true;
         }
 
@@ -403,7 +405,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
         updateWrapper.eq("id", process.getId());
         process.update(updateWrapper);
 
-        //rocketMQTemplate.getProducer().send(new Message(MajorEvaluationTopic.MAJOR_EVALUATION, MajorEvaluationTopic.MATERIAL_BACK, new UserMessageDTO<>(userId, evaluationProcessId).toString().getBytes()));
+        evaluationMessageProducer.sendMajorEvaluationMessage(MajorEvaluationTopic.MATERIAL_BACK, userId, evaluationProcessId);
 
         return true;
     }

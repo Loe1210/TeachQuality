@@ -40,7 +40,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
         //课程评审流程创建，向SenderID（流程创建者）发生通知即可。
         String message = "您成功创建了专业评审流程，请您及时进入专业评审上传自评材料。";
         UserMessage userMessage = new UserMessage(1, 0, "系统", "提醒", (Long) userMessageDTO.getObjectId(),
-                "专业评审流程", "", (Integer) userMessageDTO.getSenderId(), message);
+                "专业评审流程", "", toInteger(userMessageDTO.getSenderId()), message);
         userMessageService.insertOneMessage(userMessage);
     }
 
@@ -49,7 +49,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     public <T, F> void evaluationProcessPrincipalUpload(UserMessageDTO<T, F> userMessageDTO) {
         //课程负责人上传材料，向该类型所有课程评审专家评审
         //找出该用户的用户角色 根据角色类型来划分
-        User user = userMapper.selectById((Long) userMessageDTO.getSenderId());
+        User user = userMapper.selectById(toLong(userMessageDTO.getSenderId()));
         List<String> userType = UserUtil.getUserType(user);
 
         //找出所有的专家，邀请专家进行评审
@@ -69,7 +69,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
         }
 
         //获取发送用户的信息和课程信息
-        UserDTO senderUserDTO = userMapper.selectUserName((Integer) userMessageDTO.getSenderId());
+        UserDTO senderUserDTO = userMapper.selectUserName(toInteger(userMessageDTO.getSenderId()));
         MajorEvaluationDTO majorEvaluationDTO = majorEvaluationProcessMapper.getMajorEvaluationInfo((Long) userMessageDTO.getObjectId());
 
         userMessageService.insertBatchMessage(informUsers.stream().map(userId -> {
@@ -82,7 +82,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     @Override
     public <T, F> void evaluationProcessSendBackMaterial(UserMessageDTO<T, F> userMessageDTO) {
         //找出 发送者和接收者
-        UserDTO sender = userMapper.selectUserName((Integer) userMessageDTO.getSenderId());
+        UserDTO sender = userMapper.selectUserName(toInteger(userMessageDTO.getSenderId()));
         Integer receiverId = userMapper.selectUserId((Long) userMessageDTO.getObjectId());
 
         MajorEvaluationDTO majorEvaluationDTO = majorEvaluationProcessMapper.getMajorEvaluationInfo((Long) userMessageDTO.getObjectId());
@@ -97,7 +97,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     @Override
     public <T, F> void evaluationProcessExpertSubmit(UserMessageDTO<T, F> userMessageDTO) {
         //专家提交了评审，发送消息给专家组长
-        User user = userMapper.selectById((Long) userMessageDTO.getSenderId());
+        User user = userMapper.selectById(toLong(userMessageDTO.getSenderId()));
         List<String> userType = UserUtil.getUserType(user);
 
         List<Integer> informUsers = null;
@@ -128,7 +128,7 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     @Override
     public <T, F> void evaluationProcessExpertLeaderSubmit(UserMessageDTO<T, F> userMessageDTO) {
         //专家组长提交了评审，发送消息给专家组长（给出小组评审意见）
-        User user = userMapper.selectById((Long) userMessageDTO.getSenderId());
+        User user = userMapper.selectById(toLong(userMessageDTO.getSenderId()));
         List<String> userType = UserUtil.getUserType(user);
 
         List<Integer> informUsers = null;
@@ -153,5 +153,13 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
             return new UserMessage(1, 0, "系统", "提醒", (Long) userMessageDTO.getObjectId(), "专业评审流程",
                     "", receiverId, message);
         }).collect(Collectors.toList()));
+    }
+
+    private Long toLong(Object value) {
+        return value == null ? null : ((Number) value).longValue();
+    }
+
+    private Integer toInteger(Object value) {
+        return value == null ? null : ((Number) value).intValue();
     }
 }

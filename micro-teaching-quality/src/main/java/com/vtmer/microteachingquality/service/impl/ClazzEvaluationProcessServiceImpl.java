@@ -9,6 +9,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.vtmer.microteachingquality.common.component.EvaluationMessageProducer;
+import com.vtmer.microteachingquality.common.constant.topic.ClazzEvaluationTopic;
 import com.vtmer.microteachingquality.common.constant.enums.EvaluationProcessStatus;
 import com.vtmer.microteachingquality.common.constant.enums.UserTypeConstant;
 import com.vtmer.microteachingquality.common.exception.CustomException;
@@ -24,10 +26,6 @@ import com.vtmer.microteachingquality.service.ClazzService;
 import com.vtmer.microteachingquality.util.UserUtil;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.exception.MQBrokerException;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.remoting.exception.RemotingException;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -36,7 +34,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import java.io.File;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,11 +74,11 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
     @Resource
     private ClazzMapper clazzMapper;
     @Resource
-    private RocketMQTemplate rocketMQTemplate;
-    @Resource
     private ClazzService clazzService;
     @Resource
     private ClazzFileService clazzFileService;
+    @Resource
+    private EvaluationMessageProducer evaluationMessageProducer;
 
 
     @SneakyThrows
@@ -98,7 +95,7 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
         Long processId = IdUtil.getSnowflake(0, 0).nextId();
         ClassEvaluationProcess process = new ClassEvaluationProcess(processId, user.getId(), clazzId, LocalDateTime.now().getYear() + "级");
         if (process.insert()) {
-            //rocketMQTemplate.getProducer().send(new Message(ClazzEvaluationTopic.CLAZZ_EVALUATION, ClazzEvaluationTopic.PROCESS_CREATED, new UserMessageDTO<>(user.getId(), majorEvaluationProcessId).toString().getBytes()));
+            evaluationMessageProducer.sendClazzEvaluationMessage(ClazzEvaluationTopic.PROCESS_CREATED, user.getId(), processId);
             log.info("用户id {} {} 创建课程评价流程成功，流程id：{}", user.getId(), user.getRealName(), processId);
             return true;
         }
@@ -186,7 +183,7 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public Boolean principalUploadMaterial(MultipartFile file, Long evaluationId) throws MQBrokerException, RemotingException, IOException, InterruptedException, MQClientException {
+    public Boolean principalUploadMaterial(MultipartFile file, Long evaluationId) {
         // 获取当前登陆用户(课程负责人)对象
         User user = UserUtil.getCurrentUser();
 
@@ -239,7 +236,7 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
 
         //TODO 上传文件不会插入id
         if (clazzFileMapper.insert(clazzFileInsert) > 0) {
-            //rocketMQTemplate.getProducer().send(new Message(ClazzEvaluationTopic.CLAZZ_EVALUATION, ClazzEvaluationTopic.PRINCIPAL_UPLOAD, UserMessageDTO.newInstance(new UserMessageDTO<>(user.getId(), evaluationId))));
+            evaluationMessageProducer.sendClazzEvaluationMessage(ClazzEvaluationTopic.PRINCIPAL_UPLOAD, user.getId(), evaluationId);
             FileUtil.writeBytes(file.getBytes(), filePath);
         }
 
@@ -284,8 +281,7 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
 
         //向被退回的课程负责人发送通知
         User currentUser = UserUtil.getCurrentUser();
-        //rocketMQTemplate.getProducer().send(new Message(ClazzEvaluationTopic.CLAZZ_EVALUATION, ClazzEvaluationTopic.MATERIAL_BACK,
-        //        new UserMessageDTO<>(currentUser.getId(), evaluationId).toString().getBytes(StandardCharsets.UTF_8)));
+        evaluationMessageProducer.sendClazzEvaluationMessage(ClazzEvaluationTopic.MATERIAL_BACK, currentUser.getId(), evaluationId);
         return true;
     }
 

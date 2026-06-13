@@ -526,3 +526,30 @@
 - 跨域白名单现在可以通过环境变量统一配置，不再把历史域名和 IP 写死在源码里。
 - 认证侧跨域配置和 `allowCredentials` 的组合更符合 Spring 的预期行为。
 - `EncryptUtil` 保留纯工具职责，不再包含调试入口。
+
+### 2026-06-13 模块 06：P1 MQ 生产端闭环打通
+
+- 分支：`feat/p1-mq-producer-closure`
+- 范围：课程/专业评审主流程、统一消息发送组件、`UserMessageDTO`
+
+本次完成：
+- 新增统一的 `EvaluationMessageProducer`，集中封装课程/专业评审事件消息发送，避免业务层继续手写 topic、tag 和序列化逻辑。
+- 修正了 `micro-teaching-quality` 中 `UserMessageDTO` 只有默认 `Object.toString()` 的问题，改为显式 DTO 结构，保证发送 payload 可被消费端按 JSON 正确解析。
+- 打通了专业评审主链的 5 类消息发送：
+  - 创建流程
+  - 负责人上传材料
+  - 专家提交评审
+  - 专家组长提交评审
+  - 退回材料
+- 打通了课程评审主链的 5 类消息发送：
+  - 创建流程
+  - 负责人上传材料
+  - 专家提交评审
+  - 专家组长提交评审
+  - 退回材料
+- 把原来大面积注释掉的 RocketMQ 发送逻辑，从“散落注释”收敛成统一组件调用。
+
+本次自检重点：
+- 生产端发出的 payload 现在与 `micro-teaching-message` 消费端 `JSON.parseObject(...)` 的解析方式兼容。
+- 课程/专业评审主流程的通知消息闭环已真正接通，不再只是预埋 RocketMQ 依赖。
+- 这一模块仍未引入 `msg_log`、重试补偿和死信兜底，这部分会作为下一独立模块继续补齐。
