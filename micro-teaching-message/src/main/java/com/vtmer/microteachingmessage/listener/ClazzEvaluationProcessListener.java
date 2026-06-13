@@ -5,6 +5,7 @@ import com.vtmer.microteachingmessage.constant.ClazzEvaluationTopic;
 import com.vtmer.microteachingmessage.exception.IllegalMessageTagException;
 import com.vtmer.microteachingmessage.pojo.dto.UserMessageDTO;
 import com.vtmer.microteachingmessage.service.ClazzEvaluationProcessService;
+import com.vtmer.microteachingmessage.service.MessageConsumeLogService;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
@@ -22,44 +23,42 @@ import java.nio.charset.StandardCharsets;
 @RocketMQMessageListener(topic = "clazz_evaluation", consumerGroup = "clazz_message_group", messageModel = MessageModel.CLUSTERING)
 public class ClazzEvaluationProcessListener implements RocketMQListener<MessageExt> {
 
+    private static final String CONSUMER_GROUP = "clazz_message_group";
+
     @Autowired
     private ClazzEvaluationProcessService clazzEvaluationProcessService;
+    @Autowired
+    private MessageConsumeLogService messageConsumeLogService;
 
     @Override
     public void onMessage(MessageExt messageExt) {
+        messageConsumeLogService.consumeOnce(messageExt, CONSUMER_GROUP, () -> handleMessage(messageExt));
+    }
 
+    private void handleMessage(MessageExt messageExt) {
         String messageTag = messageExt.getTags();
-
-        //解析消息内容
         String body = new String(messageExt.getBody(), StandardCharsets.UTF_8);
         UserMessageDTO<?, ?> mqEntity = JSON.parseObject(body, UserMessageDTO.class);
 
-        //根据消息标签进行不同处理
         switch (messageTag) {
-            //创建课程评价流程
             case ClazzEvaluationTopic.PROCESS_CREATED:
                 clazzEvaluationProcessService.evaluationProcessCreate(mqEntity);
-                break;
-            //课程负责人上传材料
+                return;
             case ClazzEvaluationTopic.PRINCIPAL_UPLOAD:
                 clazzEvaluationProcessService.evaluationProcessPrincipalUpload(mqEntity);
-                break;
-            //评审专家 退回材料
+                return;
             case ClazzEvaluationTopic.MATERIAL_BACK:
                 clazzEvaluationProcessService.evaluationProcessSendBackMaterial(mqEntity);
-                break;
-            //评审专家 提交评审
+                return;
             case ClazzEvaluationTopic.EXPERT_SUBMIT:
                 clazzEvaluationProcessService.evaluationProcessExpertSubmit(mqEntity);
-                break;
-            //评审专家组长 提交评审
+                return;
             case ClazzEvaluationTopic.EXPERT_LEADER_SUBMIT:
                 clazzEvaluationProcessService.evaluationProcessExpertLeaderSubmit(mqEntity);
-                break;
+                return;
             default:
                 throw new IllegalMessageTagException("无MQ Tags");
         }
-
     }
 
 }
