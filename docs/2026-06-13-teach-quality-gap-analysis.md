@@ -553,3 +553,20 @@
 - 生产端发出的 payload 现在与 `micro-teaching-message` 消费端 `JSON.parseObject(...)` 的解析方式兼容。
 - 课程/专业评审主流程的通知消息闭环已真正接通，不再只是预埋 RocketMQ 依赖。
 - 这一模块仍未引入 `msg_log`、重试补偿和死信兜底，这部分会作为下一独立模块继续补齐。
+
+### 2026-06-13 模块 07：P1 Maven 构建链治理
+
+- 分支：`feat/p1-build-chain-hardening`
+- 范围：根工程 `pom.xml`、`micro-oauth2-commons` 坐标、各模块 commons 依赖声明
+
+本次完成：
+- 把 `micro-teaching-message` 补回根工程 `modules`，让当前仓库恢复成更完整的 Maven reactor。
+- 把 `micro-oauth2-commons` 从独立坐标 `com.hung:micro-oauth2-commons:1.0.0.RELEASE` 收敛到根父工程体系下，统一为 `com.vtmer` + `1.0-SNAPSHOT`。
+- 同步调整了 `micro-oauth2-auth`、`micro-oauth2-gateway`、`micro-teaching-quality`、`micro-teaching-message` 对 commons 的依赖坐标，避免单独模块构建时继续错误地把公共模块当成外部私服依赖。
+- 升级根工程中的 druid 版本，优先规避 `1.2.6` 传递依赖中包含的非法 `systemPath` 配置问题。
+- 补了一处在构建验证中暴露出的真实编译问题：将 `ClazzEvaluationProcessServiceImpl.principalUploadMaterial(...)` 恢复为项目现有的 `@SneakyThrows` 风格，避免文件写入抛出的受检异常阻断编译。
+
+本次自检重点：
+- `micro-oauth2-commons` 现在明确成为当前多模块工程的一部分，而不是“像外部私有 jar 一样被下载”。
+- `mvn -pl micro-teaching-quality -am test` 已成功跑通，说明 commons 联动构建和 druid 依赖问题已收敛。
+- 当前这次 Maven 成功里测试仍然是 `skipTests` 状态，后续如果要做真正回归验证，还需要单独打开测试执行。

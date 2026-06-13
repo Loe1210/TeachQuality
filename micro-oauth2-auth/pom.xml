@@ -55,9 +55,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.hung</groupId>
+            <groupId>com.vtmer</groupId>
             <artifactId>micro-oauth2-commons</artifactId>
-            <version>1.0.0.RELEASE</version>
+            <version>${project.parent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

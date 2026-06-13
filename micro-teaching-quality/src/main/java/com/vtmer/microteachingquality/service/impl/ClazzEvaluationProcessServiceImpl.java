@@ -181,6 +181,7 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
 
     }
 
+    @SneakyThrows
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean principalUploadMaterial(MultipartFile file, Long evaluationId) {

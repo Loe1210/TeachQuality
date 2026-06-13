@@ -21,6 +21,7 @@
         <module>micro-oauth2-commons</module>
         <module>micro-oauth2-gateway</module>
         <module>micro-oauth2-auth</module>
+        <module>micro-teaching-message</module>
     </modules>
 
     <properties>
@@ -38,7 +39,7 @@
         <rocketmq.version>2.2.0</rocketmq.version>
         <mybatis.version>3.5.1</mybatis.version>
         <redisson.version>3.13.6</redisson.version>
-        <druid.version>1.2.6</druid.version>
+        <druid.version>1.2.23</druid.version>
         <swagger.version>3.0.0</swagger.version>
         <oauth2.version>2.2.5.RELEASE</oauth2.version>
         <log4j2.version>2.18.0</log4j2.version>
