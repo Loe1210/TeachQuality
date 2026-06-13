@@ -1,5 +1,6 @@
 package com.hung.microoauth2gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -16,6 +17,15 @@ import java.security.KeyPair;
  */
 @Configuration
 public class TokenConfig {
+
+    @Value("${security.jwt.key-store-password}")
+    private String keyStorePassword;
+
+    @Value("${security.jwt.key-pair-alias}")
+    private String keyPairAlias;
+
+    @Value("${security.jwt.key-pair-password}")
+    private String keyPairPassword;
 
     @Bean
     public TokenStore tokenStore() {
@@ -38,7 +48,8 @@ public class TokenConfig {
     @Bean
     public KeyPair keyPair() {
         //从classpath下的证书中获取秘钥对
-        KeyStoreKeyFactory keyStoreKeyFactory = new KeyStoreKeyFactory(new ClassPathResource("jwt.jks"), "123456".toCharArray());
-        return keyStoreKeyFactory.getKeyPair("jwt", "123456".toCharArray());
+        KeyStoreKeyFactory keyStoreKeyFactory =
+                new KeyStoreKeyFactory(new ClassPathResource("jwt.jks"), keyStorePassword.toCharArray());
+        return keyStoreKeyFactory.getKeyPair(keyPairAlias, keyPairPassword.toCharArray());
     }
 }
