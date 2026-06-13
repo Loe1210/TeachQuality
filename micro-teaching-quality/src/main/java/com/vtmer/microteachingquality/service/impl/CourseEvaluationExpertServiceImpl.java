@@ -2,13 +2,14 @@ package com.vtmer.microteachingquality.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
+import com.vtmer.microteachingquality.common.component.EvaluationMessageProducer;
+import com.vtmer.microteachingquality.common.constant.topic.ClazzEvaluationTopic;
 import com.vtmer.microteachingquality.common.constant.enums.EvaluationProcessStatus;
 import com.vtmer.microteachingquality.common.constant.enums.UserTypeConstant;
 import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.mapper.*;
 import com.vtmer.microteachingquality.model.bo.SubmitEvaluationRecordBO;
 import com.vtmer.microteachingquality.model.dto.ClazzInJudgeResultDTO;
-import com.vtmer.microteachingquality.model.dto.UserMessageDTO;
 import com.vtmer.microteachingquality.model.pojo.User;
 import com.vtmer.microteachingquality.model.pojo.clazzevaluation.*;
 import com.vtmer.microteachingquality.model.vo.*;
@@ -16,7 +17,6 @@ import com.vtmer.microteachingquality.service.CourseEvaluationExpertService;
 import com.vtmer.microteachingquality.util.UserUtil;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +49,7 @@ public class CourseEvaluationExpertServiceImpl implements CourseEvaluationExpert
     @Resource
     private ClazzEvaluationProcessMapper clazzEvaluationProcessMapper;
     @Resource
-    private RocketMQTemplate rocketMQTemplate;
+    private EvaluationMessageProducer evaluationMessageProducer;
 
     /**
      * 评审课程报告信息
@@ -217,15 +217,18 @@ public class CourseEvaluationExpertServiceImpl implements CourseEvaluationExpert
 
         }
 
-        //发送通知
-        UserMessageDTO<Integer, Long> message = new UserMessageDTO<>(UserUtil.getCurrentUser().getId(), submitEvaluationRecordBO.getClazzEvaluationProcessId());
-
         if (UserUtil.isRoleAvailable(CLAZZ_EVALUATION_EXPERT_LEADER)) {
-            //rocketMQTemplate.getProducer().send(new Message(ClazzEvaluationTopic.CLAZZ_EVALUATION, ClazzEvaluationTopic.EXPERT_LEADER_SUBMIT, message.toString().getBytes()));
+            evaluationMessageProducer.sendClazzEvaluationMessage(
+                    ClazzEvaluationTopic.EXPERT_LEADER_SUBMIT,
+                    UserUtil.getCurrentUser().getId(),
+                    submitEvaluationRecordBO.getClazzEvaluationProcessId());
             return true;
         }
         if (UserUtil.isRoleAvailable(CLAZZ_EVALUATION_EXPERT)) {
-            //rocketMQTemplate.getProducer().send(new Message(ClazzEvaluationTopic.CLAZZ_EVALUATION, ClazzEvaluationTopic.EXPERT_SUBMIT, message.toString().getBytes()));
+            evaluationMessageProducer.sendClazzEvaluationMessage(
+                    ClazzEvaluationTopic.EXPERT_SUBMIT,
+                    UserUtil.getCurrentUser().getId(),
+                    submitEvaluationRecordBO.getClazzEvaluationProcessId());
         }
         return true;
     }
