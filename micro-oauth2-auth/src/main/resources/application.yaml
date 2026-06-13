@@ -1,0 +1,30 @@
+server:
+  port: 9401
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration,org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+  application:
+    name: micro-oauth2-auth
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://117.72.95.156:3306/teach_quality_test
+    username: lighthouse
+    password: vtmer2024!
+  cloud:
+    nacos:
+      discovery:
+        server-addr: http://117.72.95.156:8848
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+  main:
+    allow-bean-definition-overriding: true
+  redis:
+    database: 0
+    port: 6379
+    host: 117.72.95.156
+    password: vtmer2024
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"

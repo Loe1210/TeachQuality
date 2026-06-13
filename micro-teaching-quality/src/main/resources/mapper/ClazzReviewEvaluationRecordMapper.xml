@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vtmer.microteachingquality.mapper.ClazzReviewEvaluationRecordMapper">
+
+    <resultMap id="BaseResultMap"
+               type="com.vtmer.microteachingquality.model.pojo.clazzevaluation.ClazzReviewEvaluationRecord">
+        <id property="id" column="id" jdbcType="INTEGER"/>
+        <result property="evaluationId" column="evaluation_id" jdbcType="INTEGER"/>
+        <result property="reviewEvaluation" column="review_evaluation" jdbcType="VARCHAR"/>
+        <result property="remark" column="remark" jdbcType="VARCHAR"/>
+        <result column="evaluation_year" jdbcType="VARCHAR" property="evaluationYear"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id
+        ,evaluation_id,review_evaluation,
+        remark
+    </sql>
+</mapper>

@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: micro-teaching-message
+  cloud:
+    nacos:
+      discovery:
+        server-addr: http://117.72.95.156:8848
+  datasource:
+    # 如果存在多个数据源，监控的时候可以通过名字来区分开来
+    name: mysql
+    # 连接数据库的url
+    url: jdbc:mysql://117.72.95.156:3306/teach_quality_test?characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    # 连接数据库的账号
+    username: root
+    # 连接数据库的密码
+    password: vtmer2020
+  redis:
+    host: 119.91.200.72
+    port: 6379
+    # redis密码，默认为空
+    password: cph
+    database: 1
+rocketmq:
+  producer:
+    group: messageProducerGroup
+  name-server: "175.178.67.249:9876"
+server:
+  port: 9601

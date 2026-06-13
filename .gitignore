@@ -1,0 +1,38 @@
+# IDE
+.idea/
+.vscode/
+.workflow/
+
+# Build output
+target/
+**/target/
+out/
+build/
+
+# Logs
+log/
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+tmp_doc_extract.txt
+*.docx
+
+# Local environment
+.env
+.env.*
+
+# Runtime files
+*.pid
+*.seed
+*.lock
+
+# Java
+*.class

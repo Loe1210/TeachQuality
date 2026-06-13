@@ -1,0 +1,81 @@
+server:
+  # 端口设置
+  port: 8082
+
+# Spring配置
+spring:
+  profiles: test
+  datasource:
+    # 连接数据库的url
+    url: jdbc:mysql://117.72.95.156:3306/teach_quality_test?serverTimezone=Asia/Shanghai
+    # 连接数据库的账号
+    username: lighthouse
+    # 连接数据库的密码
+    password: vtmer2024!
+  redis:
+    host: 117.72.95.156
+    port: 6379
+    # redis密码，默认为空
+    password: vtmer2024
+    database: 0
+  # 开启热部署
+  devtools:
+    restart:
+      enabled: true
+
+# 日志配置
+logging:
+  # 日志输出级别
+  level:
+    ROOT: debug
+
+# 自评报告
+report:
+  template:
+    path: /home/java/pt/report/template
+  path: /home/java/pt/report/manager
+
+coursereport:
+  template:
+    path: /home/java/pt/coursereport/template
+  path: /home/java/pt/coursereport/manager
+
+# 课程自评报告
+clazz:
+  template:
+    path: /home/java/pt/clazz/template
+  path: /home/java/pt/clazz/template/annotation
+
+#专业归档文件路径
+major:
+  archive:
+    template: /home/java/pt/majorarchive/tempate
+    file: /home/java/pt/majorarchive/file
+
+# 导出的课程评审报告
+clazzReport:
+  template:
+    path: /home/java/pt/clazz/report/template
+  path: /home/java/pt/clazz/report/template/file
+
+# 导出的专业评审报告
+majorReport:
+  template:
+    path: /home/java/pt/major/report/template
+  path: /home/java/pt/major/report/template/file
+
+# Swagger
+swagger:
+  # host
+  host: localhost:8082
+  enable: true
+
+secure:
+  ignore:
+    urls: #配置白名单路径
+      - "/actuator/**"
+      - "/auth/oauth/**"
+      - "/teaching/user/send"
+      - "/teaching/user/forget"
+      - "/teaching/user/createAccount"
+      - "/teaching/user/forgetPassword"

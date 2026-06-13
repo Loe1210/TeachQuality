@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+status="warn"日志框架本身的输出日志级别
+monitorInterval="5"自动加载配置文件的间隔时间，不低于5秒
+-->
+<!-- scan:当此属性设置为true时，配置文档如果发生改变，将会被重新加载，默认值为true -->
+<!-- scanPeriod:设置监测配置文档是否有修改的时间间隔，如果没有给出时间单位，默认单位是毫秒。
+                 当scan为true时，此属性生效。默认的时间间隔为1分钟。 -->
+<!-- debug:当此属性设置为true时，将打印出logback内部日志信息，实时查看logback运行状态。默认值为false。 -->
+
+<!--<Configuration scan="true" scanPeriod="10 seconds" status="debug" monitorInterval="5">-->
+
+<!--    &lt;!&ndash;-->
+<!--    集中配置属性进行管理-->
+<!--    使用时通过:${name}-->
+<!--    &ndash;&gt;-->
+<!--    <properties>-->
+<!--        <property name="LOG_HOME">/logs</property>-->
+<!--    </properties>-->
+
+<!--    &lt;!&ndash;日志处理&ndash;&gt;-->
+<!--    <Appenders>-->
+<!--        &lt;!&ndash;控制台输出appender&ndash;&gt;-->
+<!--        <Console name="Console" target="SYSTEM_ERR">-->
+<!--            <Pattern Layoutpattern="%d{HH:mm:ss.SSS}[%t][%-5level]%c{36}:%L-&#45;&#45;%m%n"/>-->
+<!--        </Console>-->
+
+<!--        &lt;!&ndash;日志文件输出appender&ndash;&gt;-->
+<!--        <File name="file" fileName="${LOG_HOME}/logFile.log">-->
+<!--            <Pattern Layoutpattern="[%d{yyyy-MM-ddHH:mm:ss.SSS}][%-5level]%l%c{36}-%m%n"/>-->
+<!--        </File>-->
+
+<!--        <Async name="Async">-->
+<!--            <Appender Refref="file"/>-->
+<!--        </Async>-->
+
+<!--        &lt;!&ndash;使用随机读写流的日志文件输出appender，性能提高&ndash;&gt;-->
+<!--        <RandomAccessFile name="accessFile" fileName="${LOG_HOME}/myAcclog.log">-->
+<!--            <PatternLayout pattern="[%d{yyyy-MM-ddHH:mm:ss.SSS}][%-5level]%l%c{36}-%m%n"/>-->
+<!--        </RandomAccessFile>-->
+
+<!--        &lt;!&ndash;按照一定规则拆分的日志文件的appender&ndash;&gt;-->
+<!--        <RollingFile name="rollingFile" fileName="${LOG_HOME}/myRollog.log"-->
+<!--                     filePattern="/logs/$${date:yyyy-MM-dd}/myRollog-%d{yyyy-MM-dd-HH-mm}-%i.log">-->
+<!--            &lt;!&ndash;日志级别过滤器&ndash;&gt;-->
+<!--            <ThresholdFilter level="debug" onMatch="ACCEPT" onMismatch="DENY"/>-->
+<!--            &lt;!&ndash;日志消息格式&ndash;&gt;-->
+<!--            <PatternLayout pattern="[%d{yyyy-MM-ddHH:mm:ss.SSS}][%-5level]%l%c{36}-%msg%n"/>-->
+
+<!--            <Policies>-->
+<!--                &lt;!&ndash;在系统启动时，出发拆分规则，生产一个新的日志文件&ndash;&gt;-->
+<!--                <OnStartupTriggeringPolicy/>-->
+<!--                &lt;!&ndash;按照文件大小拆分，10MB&ndash;&gt;-->
+<!--                <SizeBasedTriggeringPolicy size="10MB"/>-->
+<!--                &lt;!&ndash;按照时间节点拆分，规则根据filePattern定义的&ndash;&gt;-->
+<!--                <TimeBasedTriggeringPolicy/>-->
+<!--            </Policies>-->
+
+<!--            &lt;!&ndash;在同一个目录下，文件的个数限定为30个，超过进行覆盖&ndash;&gt;-->
+<!--            <DefaultRolloverStrategy max="30"/>-->
+<!--        </RollingFile>-->
+<!--    </Appenders>-->
+
+<!--    &lt;!&ndash;logger定义&ndash;&gt;-->
+<!--    <Loggers>-->
+<!--        &lt;!&ndash;自定义异步logger对象-->
+<!--        includeLocation="false" 关闭日志记录的行号信息-->
+<!--        additivity="false" 不在继承rootlogger对象&ndash;&gt;-->
+<!--        &lt;!&ndash;这里放开代表自定义异步logger对象，如果要使用全局异步对象，则将此注释，然后在properties中放开注释&ndash;&gt;-->
+<!--        <AsyncLogger name="com.hung" level="trace" includeLocation="false" additivity="false">-->
+<!--            <AppenderRef ref="Console"/>-->
+<!--        </AsyncLogger>-->
+
+<!--        &lt;!&ndash;使用rootLogger配置日志级别level="trace"&ndash;&gt;-->
+<!--        <Root level="trace">-->
+<!--            &lt;!&ndash;指定日志使用的处理器&ndash;&gt;-->
+<!--            <AppenderRef ref="Console"/>-->
+
+<!--            &lt;!&ndash;使用异步appender&ndash;&gt;-->
+<!--            <AppenderRef ref="Async"/>-->
+<!--        </Root>-->
+<!--    </Loggers>-->
+<!--</Configuration>-->
+
+<configuration status="warn" monitorInterval="30">
+    <!--先定义所有的appender-->
+    <appenders>
+        <!--这个输出控制台的配置-->
+        <console name="Console" target="SYSTEM_OUT">
+            <!--输出日志的格式-->
+            <PatternLayout pattern="[%d{HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+        </console>
+        <!--文件会打印出所有信息，这个log每次运行程序会自动清空，由append属性决定，这个也挺有用的，适合临时测试用-->
+        <File name="log" fileName="log/test.log" append="false">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %class{36} %L %M - %msg%xEx%n"/>
+        </File>
+        <!-- 这个会打印出所有的info及以下级别的信息，每次大小超过size，
+        则这size大小的日志会自动存入按年份-月份建立的文件夹下面并进行压缩，作为存档-->
+        <RollingFile name="RollingFileInfo" fileName="${sys:user.home}/logs/hpaasvc/info.log"
+                     filePattern="${sys:user.home}/logs/hpaasvc/$${date:yyyy-MM}/info-%d{yyyy-MM-dd}-%i.log">
+            <Filters>
+                <!--控制台只输出level及以上级别的信息（onMatch），其他的直接拒绝（onMismatch）-->
+                <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
+                <ThresholdFilter level="WARN" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
+            <PatternLayout pattern="[%d{HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>
+
+        <RollingFile name="RollingFileWarn" fileName="${sys:user.home}/logs/hpaasvc/warn.log"
+                     filePattern="${sys:user.home}/logs/hpaasvc/$${date:yyyy-MM}/warn-%d{yyyy-MM-dd}-%i.log">
+            <Filters>
+                <ThresholdFilter level="WARN" onMatch="ACCEPT" onMismatch="DENY"/>
+                <ThresholdFilter level="ERROR" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
+            <PatternLayout pattern="[%d{HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <!-- DefaultRolloverStrategy属性如不设置，则默认为最多同一文件夹下7个文件，这里设置了20 -->
+            <DefaultRolloverStrategy max="20"/>
+        </RollingFile>
+
+        <RollingFile name="RollingFileError" fileName="${sys:user.home}/logs/hpaasvc/error.log"
+                     filePattern="${sys:user.home}/logs/hpaasvc/$${date:yyyy-MM}/error-%d{yyyy-MM-dd}-%i.log">
+            <ThresholdFilter level="ERROR"/>
+            <PatternLayout pattern="[%d{HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>
+
+    </appenders>
+    <!--然后定义logger，只有定义了logger并引入的appender，appender才会生效-->
+    <loggers>
+        <!--过滤掉spring和hibernate的一些无用的debug信息-->
+        <logger name="org.springframework" level="INFO">
+        </logger>
+        <logger name="org.mybatis" level="INFO">
+        </logger>
+        <root level="all">
+            <!--            <appender-ref ref="Console"/>-->
+            <appender-ref ref="RollingFileInfo"/>
+            <appender-ref ref="RollingFileWarn"/>
+            <appender-ref ref="RollingFileError"/>
+        </root>
+    </loggers>
+</configuration>

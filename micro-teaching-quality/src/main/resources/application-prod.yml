@@ -1,0 +1,79 @@
+server:
+  # 端口设置
+  port: 8082
+  servlet:
+    context-path: /
+
+# Spring配置
+spring:
+  profiles: prod
+  datasource:
+    # 如果存在多个数据源，监控的时候可以通过名字来区分开来
+    name: mysql
+    # 连接数据库的url
+    url: jdbc:mysql://117.72.95.156:3306/teach_quality?characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    # 连接数据库的账号
+    username: lighthouse
+    # 连接数据库的密码
+    password: vtmer2024!
+
+  redis:
+    host: 117.72.95.156
+    port: 6379
+    # redis密码，默认为空
+    password: vtmer2024
+    database: 0
+  # 开启热部署
+  devtools:
+    restart:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 2048MB
+      max-request-size: 2048MB
+# 日志配置
+logging:
+  # 日志输出级别
+  level:
+    ROOT: info
+
+# Swagger
+swagger:
+  # host
+  host: localhost:8082
+  enable: true
+
+# 自评报告
+report:
+  template:
+    path: /home/java/pt/report/template
+  path: /home/java/pt/report/manager
+
+coursereport:
+  template:
+    path: /home/java/pt/coursereport/template
+  path: /home/java/pt/coursereport/manager
+
+# 课程自评报告
+clazz:
+  template:
+    path: /home/java/pt/clazz/template
+  path: /home/java/pt/clazz/template/annotation
+
+# 导出的课程评审报告
+clazzReport:
+  template:
+    path: /home/java/pt/clazz/report/template
+  path: /home/java/pt/clazz/report/template/file
+
+# 导出的专业评审报告
+majorReport:
+  template:
+    path: /home/java/pt/major/report/template
+  path: /home/java/pt/major/report/template/file
+
+#专业归档文件路径
+major:
+  archive:
+    template: /home/java/pt/majorarchive/tempate
+    file: /home/java/pt/majorarchive/file
