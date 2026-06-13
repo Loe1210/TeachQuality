@@ -6,6 +6,7 @@ import com.vtmer.microteachingquality.mapper.UserRoleMapper;
 import com.vtmer.microteachingquality.model.bo.ReviseUserPermissionBO;
 import com.vtmer.microteachingquality.model.pojo.User;
 import com.vtmer.microteachingquality.model.pojo.UserRole;
+import com.vtmer.microteachingquality.service.PermissionVersionService;
 import com.vtmer.microteachingquality.service.UserRoleService;
 import com.vtmer.microteachingquality.util.UserUtil;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,8 @@ public class UserRoleServiceImpl implements UserRoleService {
     private UserMapper userMapper;
     @Resource
     private UserRoleService userRoleService;
+    @Resource
+    private PermissionVersionService permissionVersionService;
 
 
     /**
@@ -93,6 +96,7 @@ public class UserRoleServiceImpl implements UserRoleService {
             }
             new UserRole(reviseUserPermissionBO.getUserId(), roleId).insert();
         });
+        permissionVersionService.bump(reviseUserPermissionBO.getUserId());
 
         return true;
     }

@@ -624,3 +624,18 @@
 本次自检重点：
 - 退出登录后，旧 token 会在剩余有效期内持续失效，而不是只能“客户端自己删掉 token”。
 - 这一轮还没有补 `refresh token` 刷新和 `permissionVersion/tokenVersion` 版本化失效，后续模块继续补齐。
+
+### 2026-06-13 模块 11：P3 权限变更后的旧 token 失效
+
+- 分支：`feat/p3-permission-version-invalidation`
+- 范围：`micro-oauth2-auth`、`micro-oauth2-gateway`、`micro-teaching-quality`
+
+本次完成：
+- 在 JWT 增强器里新增 `permissionVersion` 声明，并改为从当前登录主体 JSON 中解析用户 ID，避免继续依赖不匹配的 `SecurityUser` 类型假设。
+- 在 Gateway 鉴权器中增加权限版本校验：当 token 内的 `permissionVersion` 落后于 Redis 最新版本时，直接拒绝访问。
+- 在教学质量服务新增 `PermissionVersionService`，用于在角色权限发生变化时递增 Redis 中的权限版本号。
+- 把管理员改角色、组长授予专家角色这两条实际会变更权限的入口接入版本递增逻辑。
+
+本次自检重点：
+- 角色权限一旦被修改，用户需要重新登录获取新 token，旧 token 不会继续带着过期权限工作。
+- 这一轮还没有做 refresh token 的同步失效控制，如果后续继续深化，可以把 refresh token 也纳入版本校验。

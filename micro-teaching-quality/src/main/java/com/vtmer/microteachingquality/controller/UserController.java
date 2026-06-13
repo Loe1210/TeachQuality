@@ -22,6 +22,7 @@ import com.vtmer.microteachingquality.model.vo.UserRoleVO;
 import com.vtmer.microteachingquality.service.TRoleService;
 import com.vtmer.microteachingquality.service.UserRoleService;
 import com.vtmer.microteachingquality.service.UserService;
+import com.vtmer.microteachingquality.service.PermissionVersionService;
 import com.vtmer.microteachingquality.util.UserUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -66,6 +67,8 @@ public class UserController {
     private UserRoleService userRoleService;
     @Autowired
     private TRoleService tRoleService;
+    @Autowired
+    private PermissionVersionService permissionVersionService;
 
     @ApiOperation("获取当前登录账号的信息")
     @GetMapping("/currentUserInfo")
@@ -340,6 +343,7 @@ public class UserController {
         if (!save) {
             return Result.failed("授予权限失败！");
         }
+        permissionVersionService.bump(userId);
         return Result.success("授予权限成功！");
     }
 

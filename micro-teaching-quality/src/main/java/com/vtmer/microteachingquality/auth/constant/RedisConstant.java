@@ -7,5 +7,6 @@ package com.vtmer.microteachingquality.auth.constant;
 public class RedisConstant {
 
     public static final String RESOURCE_ROLES_MAP = "AUTH:RESOURCE_ROLES_MAP";
+    public static final String PERMISSION_VERSION_PREFIX = "AUTH:PERMISSION_VERSION:";
 
 }
