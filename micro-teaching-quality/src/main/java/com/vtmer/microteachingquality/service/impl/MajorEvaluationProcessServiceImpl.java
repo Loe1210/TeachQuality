@@ -318,79 +318,11 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
         if (process == null) {
             throw new CustomException("评审流程不存在");
         }
-
-//        User user = UserUtil.getCurrentUser();
-//        Integer userId = user.getId();
-        Integer userId = 83;
-
+        User currentUser = UserUtil.getCurrentUser();
         Long majorEvaluationProcessId = Long.valueOf(masterEvaluateBO.getMajorEvaluationProcessId());
-        // 检测是否已填写
-        QueryWrapper<OptionRecord> optionRecordQueryWrapper = new QueryWrapper<>();
-
-        QueryWrapper<MasterEvaluation> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("major_evaluation_process_id", majorEvaluationProcessId);
-        queryWrapper.eq("user_id", userId);
-        MasterEvaluation masterEvaluationSelect = masterEvaluationMapper.selectOne(queryWrapper);
-        if (masterEvaluationSelect != null && masterEvaluationSelect.getId() != null) {
-            if (!masterEvaluationSelect.deleteById()) {
-                throw new CustomException("保存报告失败！");
-            } else {
-                //删除原本的记录
-
-                //删除OptionRecord
-                optionRecordQueryWrapper.eq("major_evaluation_process_id", majorEvaluationProcessId);
-                optionRecordQueryWrapper.eq("user_id", userId);
-                OptionRecord optionRecord = new OptionRecord();
-                List<OptionRecord> optionRecords = optionRecord.selectList(optionRecordQueryWrapper);
-                if (!optionRecords.isEmpty()) {
-                    boolean delete = optionRecord.delete(optionRecordQueryWrapper);
-                    if (!delete) {
-                        throw new CustomException("修改问题列表失败！");
-                    }
-                }
-
-                //删除MasterRecord
-                QueryWrapper<MasterEvaluation> deleteQueryWrapper = new QueryWrapper<>();
-                deleteQueryWrapper.eq("id", masterEvaluationSelect.getId());
-                if (!masterEvaluationMapper.selectList(deleteQueryWrapper).isEmpty()) {
-                    int deleteById = masterEvaluationMapper.delete(deleteQueryWrapper);
-                    if (!(deleteById == 1)) {
-                        log.info("delete info is : {}", deleteById);
-                        throw new CustomException("专家记录删除失败");
-                    }
-                }
-            }
-
-        }
-
-
-        Map<Integer, String> optionMap = masterEvaluateBO.getOptionMap();
-        for (Map.Entry<Integer, String> option : optionMap.entrySet()) {
-            OptionRecord optionRecord = new OptionRecord(userId, majorEvaluationProcessId, option.getKey(), option.getValue());
-            boolean insert = optionRecord.insert();
-            if (!insert) {
-                throw new CustomException("保存报告错误，请重新提交！或联系管理员！");
-            }
-        }
-
-
-        //更新流程状态
-        UpdateWrapper<MajorEvaluationProcess> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.set("expert_review_status", END);
-        updateWrapper.set("expert_leader_review_status", UNDERWAY);
-        updateWrapper.eq("id", process.getId());
-        process.update(updateWrapper);
-
-        MasterEvaluation masterEvaluation = new MasterEvaluation(userId, majorEvaluationProcessId, masterEvaluateBO.getOpinion(), masterEvaluateBO.getRemark());
-        MajorEvaluationProcess majorEvaluationProcess = majorEvaluationProcessMapper.selectById(majorEvaluationProcessId);
-        masterEvaluation.setMajorId(majorEvaluationProcess.getMajorId());
-
-        if (masterEvaluation.insert()) {
-            //rocketMQTemplate.getProducer().send(new Message(MajorEvaluationTopic.MAJOR_EVALUATION, MajorEvaluationTopic.EXPERT_SUBMIT, new UserMessageDTO<>(userId, masterEvaluateBO.getMajorEvaluationProcessId()).toString().getBytes()));
-            return true;
-        }
-
-        throw new CustomException("评审表保存失败");
+        persistMasterEvaluation(masterEvaluateBO, process, currentUser.getId(), false);
+        //rocketMQTemplate.getProducer().send(new Message(MajorEvaluationTopic.MAJOR_EVALUATION, MajorEvaluationTopic.EXPERT_SUBMIT, new UserMessageDTO<>(currentUser.getId(), masterEvaluateBO.getMajorEvaluationProcessId()).toString().getBytes()));
+        return true;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -565,20 +497,12 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     @Transactional(rollbackFor = Exception.class)
     public boolean updateMasterEvaluation(MasterEvaluateBO masterEvaluateBO) {
         MajorEvaluationProcess process = majorEvaluationProcessMapper.selectById(masterEvaluateBO.getMajorEvaluationProcessId());
-        User currentUser = UserUtil.getCurrentUser();
-        //非本人无法更新评审
-        if (!process.getCreatorId().equals(currentUser.getId())) {
-            throw new CustomException("非评审人，无法修改");
+        if (process == null) {
+            throw new CustomException("评审流程不存在");
         }
-
-        Long majorEvaluationProcessId = Long.valueOf(masterEvaluateBO.getMajorEvaluationProcessId());
-
-        QueryWrapper<MasterEvaluation> masterEvaluationQueryWrapper = new QueryWrapper<>();
-        masterEvaluationQueryWrapper.eq("major_evaluation_process_id", majorEvaluationProcessId);
-        masterEvaluationQueryWrapper.eq("user_id", currentUser.getId());
-
-
-        return false;
+        User currentUser = UserUtil.getCurrentUser();
+        persistMasterEvaluation(masterEvaluateBO, process, currentUser.getId(), true);
+        return true;
     }
 
     @Override
@@ -595,5 +519,65 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
 
         majorEvaluationProcess.update(updateWrapper);
         return true;
+    }
+
+    private void persistMasterEvaluation(MasterEvaluateBO masterEvaluateBO,
+                                         MajorEvaluationProcess process,
+                                         Integer userId,
+                                         boolean requireExisting) {
+        Long majorEvaluationProcessId = Long.valueOf(masterEvaluateBO.getMajorEvaluationProcessId());
+        MasterEvaluation existingEvaluation = getMasterEvaluation(majorEvaluationProcessId, userId);
+
+        if (requireExisting && existingEvaluation == null) {
+            throw new CustomException("当前评审记录不存在，无法更新");
+        }
+
+        if (existingEvaluation != null) {
+            clearMasterEvaluationRecords(existingEvaluation, majorEvaluationProcessId, userId);
+        }
+
+        Map<Integer, String> optionMap = masterEvaluateBO.getOptionMap();
+        for (Map.Entry<Integer, String> option : optionMap.entrySet()) {
+            OptionRecord optionRecord = new OptionRecord(userId, majorEvaluationProcessId, option.getKey(), option.getValue());
+            if (!optionRecord.insert()) {
+                throw new CustomException("保存报告错误，请重新提交！或联系管理员！");
+            }
+        }
+
+        UpdateWrapper<MajorEvaluationProcess> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.set("expert_review_status", END);
+        updateWrapper.set("expert_leader_review_status", UNDERWAY);
+        updateWrapper.eq("id", process.getId());
+        process.update(updateWrapper);
+
+        MasterEvaluation masterEvaluation = new MasterEvaluation(userId, majorEvaluationProcessId, masterEvaluateBO.getOpinion(), masterEvaluateBO.getRemark());
+        masterEvaluation.setMajorId(process.getMajorId());
+        if (!masterEvaluation.insert()) {
+            throw new CustomException("评审表保存失败");
+        }
+    }
+
+    private MasterEvaluation getMasterEvaluation(Long majorEvaluationProcessId, Integer userId) {
+        QueryWrapper<MasterEvaluation> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("major_evaluation_process_id", majorEvaluationProcessId);
+        queryWrapper.eq("user_id", userId);
+        return masterEvaluationMapper.selectOne(queryWrapper);
+    }
+
+    private void clearMasterEvaluationRecords(MasterEvaluation existingEvaluation,
+                                              Long majorEvaluationProcessId,
+                                              Integer userId) {
+        QueryWrapper<OptionRecord> optionRecordQueryWrapper = new QueryWrapper<>();
+        optionRecordQueryWrapper.eq("major_evaluation_process_id", majorEvaluationProcessId);
+        optionRecordQueryWrapper.eq("user_id", userId);
+        OptionRecord optionRecord = new OptionRecord();
+        List<OptionRecord> optionRecords = optionRecord.selectList(optionRecordQueryWrapper);
+        if (!optionRecords.isEmpty() && !optionRecord.delete(optionRecordQueryWrapper)) {
+            throw new CustomException("修改问题列表失败！");
+        }
+
+        if (!existingEvaluation.deleteById()) {
+            throw new CustomException("专家记录删除失败");
+        }
     }
 }
