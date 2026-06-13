@@ -10,6 +10,7 @@ import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -53,11 +54,42 @@ public class AuthorizationManager implements ReactiveAuthorizationManager<Author
         //认证通过且角色匹配的用户可访问当前路径
         return mono
                 .filter(Authentication::isAuthenticated)
+                .filter(this::isPermissionVersionValid)
                 .flatMapIterable(Authentication::getAuthorities)
                 .map(GrantedAuthority::getAuthority)
                 .any(authorities::contains)
                 .map(AuthorizationDecision::new)
                 .defaultIfEmpty(new AuthorizationDecision(false));
+    }
+
+    private boolean isPermissionVersionValid(Authentication authentication) {
+        if (!(authentication instanceof JwtAuthenticationToken)) {
+            return true;
+        }
+        JwtAuthenticationToken jwtAuthenticationToken = (JwtAuthenticationToken) authentication;
+        Long userId = jwtAuthenticationToken.getToken().getClaim("id");
+        Long tokenPermissionVersion = jwtAuthenticationToken.getToken().getClaim("permissionVersion");
+        if (userId == null) {
+            return true;
+        }
+        Object latestVersion = redisTemplate.opsForValue().get(RedisConstant.PERMISSION_VERSION_PREFIX + userId);
+        long latest = toLong(latestVersion);
+        long tokenVersion = tokenPermissionVersion == null ? 0L : tokenPermissionVersion;
+        boolean valid = tokenVersion >= latest;
+        if (!valid) {
+            log.info("权限版本已失效，拒绝访问。userId={}, tokenVersion={}, latestVersion={}", userId, tokenVersion, latest);
+        }
+        return valid;
+    }
+
+    private long toLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof String) {
+            return Long.parseLong((String) value);
+        }
+        return 0L;
     }
 
 }
