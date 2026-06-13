@@ -4,6 +4,7 @@ import com.vtmer.microteachingquality.log.annotation.EnableLogRecord;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  * @author Hung
  */
 @SpringBootApplication
+@EnableScheduling
 @EnableTransactionManagement
 @MapperScan("mapper")
 @EnableGlobalMethodSecurity(securedEnabled = true, prePostEnabled = true)

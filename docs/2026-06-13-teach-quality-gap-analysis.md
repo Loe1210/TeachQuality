@@ -570,3 +570,23 @@
 - `micro-oauth2-commons` 现在明确成为当前多模块工程的一部分，而不是“像外部私有 jar 一样被下载”。
 - `mvn -pl micro-teaching-quality -am test` 已成功跑通，说明 commons 联动构建和 druid 依赖问题已收敛。
 - 当前这次 Maven 成功里测试仍然是 `skipTests` 状态，后续如果要做真正回归验证，还需要单独打开测试执行。
+
+### 2026-06-13 模块 08：P2 最小可靠消息方案
+
+- 分支：`feat/p2-msg-log-reliability`
+- 范围：`msg_log`、统一发送组件、重试任务、建表 SQL
+
+本次完成：
+- 新增 `msg_log` 实体、Mapper、Service，把评审事件消息从“直接发送”改成“先记录发送日志，再尝试发送”。
+- 在 `EvaluationMessageProducer` 中补上发送状态回写：
+  - 新建日志时标记为 `PENDING`
+  - 发送成功后标记为 `SUCCESS`
+  - 发送失败后标记为 `FAIL`，记录错误信息和下次重试时间
+- 引入基于事务提交后的发送策略：如果当前业务方法存在事务，消息会在事务 `afterCommit` 后再真正发送，避免业务回滚但消息提前发出。
+- 新增 `MessageLogRetryTask` 定时补偿任务，对失败或待发送日志进行批量重试。
+- 补充了 `docs/sql/2026-06-13-msg-log.sql`，交付最小建表脚本。
+- 开启了 `@EnableScheduling`，让补偿任务具备运行条件。
+
+本次自检重点：
+- 生产端现在具备最小可靠消息能力，消息发送失败不会直接丢失。
+- 这一轮仍然没有做消费者幂等表或死信告警页，后续如果继续深化，会优先补消费幂等和人工处理入口。
