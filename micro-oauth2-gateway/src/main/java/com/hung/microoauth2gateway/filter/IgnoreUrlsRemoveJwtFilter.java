@@ -1,7 +1,11 @@
 package com.hung.microoauth2gateway.filter;
 
 import com.hung.microoauth2gateway.config.IgnoreUrlsConfig;
+import com.hung.microoauth2gateway.constant.RedisConstant;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -24,6 +28,8 @@ import java.util.List;
 public class IgnoreUrlsRemoveJwtFilter implements WebFilter {
     @Autowired
     private IgnoreUrlsConfig ignoreUrlsConfig;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
@@ -39,6 +45,19 @@ public class IgnoreUrlsRemoveJwtFilter implements WebFilter {
                 return chain.filter(exchange);
             }
         }
+        String authorization = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        String token = extractBearerToken(authorization);
+        if (token != null && Boolean.TRUE.equals(redisTemplate.hasKey(RedisConstant.TOKEN_BLACKLIST_PREFIX + token))) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
         return chain.filter(exchange);
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return null;
+        }
+        return authorization.substring(7).trim();
     }
 }
