@@ -87,3 +87,7 @@ security:
     key-store-password: ${JWT_KEYSTORE_PASSWORD:changeit}
     key-pair-alias: ${JWT_KEY_PAIR_ALIAS:jwt}
     key-pair-password: ${JWT_KEY_PAIR_PASSWORD:changeit}
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:8080,http://127.0.0.1:8080}

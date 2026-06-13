@@ -1,10 +1,13 @@
 package com.vtmer.microteachingquality.common.config;
 
 import com.vtmer.microteachingquality.common.interceptor.SchoolAccountInterceptor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.*;
+
+import java.util.List;
 
 /**
  * 提供跨域支持
@@ -12,23 +15,17 @@ import org.springframework.web.servlet.config.annotation.*;
 
 public class CorsConfig extends WebMvcConfigurationSupport {
 
+    @Value("#{'${app.cors.allowed-origins:http://localhost:8080}'.split(',')}")
+    private List<String> allowedOrigins;
+
     private CorsConfiguration buildConfig() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
         // 开启发送Cookie和HTTP认证信息
         corsConfiguration.setAllowCredentials(true);
-        // 开启发送Cookie后只能设置请求网页的域名
-        corsConfiguration.addAllowedOrigin("http://www.vtmer2021.com");
-        //设置特殊域名的跨域
-        corsConfiguration.addAllowedOrigin("http://www.vtmer2021.com:90");
-        corsConfiguration.addAllowedOrigin("http://vtmer2021.com");
-        corsConfiguration.addAllowedOrigin("http://vtmer2021.com:90");
-        corsConfiguration.addAllowedOrigin("http://117.72.95.156:80");
-        corsConfiguration.addAllowedOrigin("http://117.72.95.156:8080");
-        corsConfiguration.addAllowedOrigin("http://117.72.95.156");
-//        corsConfiguration.addAllowedOrigin("http://1.14.166.144:90");
-//        corsConfiguration.addAllowedOrigin("http://1.14.166.144:8080");
-//        corsConfiguration.addAllowedOrigin("http://1.14.166.144");
-        corsConfiguration.addAllowedOrigin("http://evaluation.moxiaoxiao.net");
+        allowedOrigins.stream()
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .forEach(corsConfiguration::addAllowedOrigin);
         // 允许任何头
         corsConfiguration.addAllowedHeader("*");
         // 允许任何方法
@@ -46,50 +43,8 @@ public class CorsConfig extends WebMvcConfigurationSupport {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // 设置允许跨域的路径
         registry.addMapping("/**")
-                // 设置允许跨域请求的域名
-                .allowedOrigins("http://www.vtmer2021.com")
-                // 是否允许证书 不再默认开启
-                .allowCredentials(true)
-                // 设置允许的方法
-                .allowedMethods("*")
-                // 跨域允许时间
-                .maxAge(3600);
-
-        //设置一些特殊域名的跨域
-        registry.addMapping("/**")
-                .allowedOrigins("http://vtmer2021.com")
-                .allowCredentials(true)
-                .allowedMethods("*")
-                .maxAge(3600);
-        registry.addMapping("/**")
-                .allowedOrigins("http://www.vtmer2021.com:90")
-                .allowCredentials(true)
-                .allowedMethods("*")
-                .maxAge(3600);
-        registry.addMapping("/**")
-                .allowedOrigins("http://vtmer2021.com:90")
-                .allowCredentials(true)
-                .allowedMethods("*")
-                .maxAge(3600);
-        registry.addMapping("/**")
-                .allowedOrigins("http://117.72.95.156:80")
-                .allowCredentials(true)
-                .allowedMethods("*")
-                .maxAge(3600);
-        registry.addMapping("/**")
-                .allowedOrigins("http://117.72.95.156:8080")
-                .allowCredentials(true)
-                .allowedMethods("*")
-                .maxAge(3600);
-        registry.addMapping("/**")
-                .allowedOrigins("http://117.72.95.156")
-                .allowCredentials(true)
-                .allowedMethods("*")
-                .maxAge(3600);
-        registry.addMapping("/**")
-                .allowedOrigins("http://evaluation.moxiaoxiao.net")
+                .allowedOrigins(allowedOrigins.toArray(new String[0]))
                 .allowCredentials(true)
                 .allowedMethods("*")
                 .maxAge(3600);

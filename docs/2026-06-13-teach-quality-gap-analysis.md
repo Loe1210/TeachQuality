@@ -510,3 +510,19 @@
 - 切面在未登录、认证异常、参数包含敏感信息的情况下都能更稳地记录日志。
 - JWT 口令和中间件地址已从源码常量移出，后续部署可以直接走环境注入。
 - 本模块仍然没有处理所有历史硬编码项，例如 `EncryptUtil`、`CorsConfig`、代码生成配置等，后续模块继续收敛。
+
+### 2026-06-13 模块 05：P1 CORS 与工具类硬编码收敛
+
+- 分支：`feat/p1-cors-encrypt-hardening`
+- 范围：`common/auth CorsConfig`、`EncryptUtil`、`application.yml`
+
+本次完成：
+- 把 `CorsConfig` 中成组写死的域名白名单收敛成配置项 `app.cors.allowed-origins`，避免每次域名变化都改 Java 代码。
+- 修正了认证侧 CORS 配置里 `allowCredentials(true)` 仍搭配 `*` 的不合法写法，改为按配置列表注入 `allowedOriginPattern`。
+- 收敛了 MVC 侧跨域配置，去掉重复的多段 `registry.addMapping("/**")` 硬编码。
+- 删除了 `EncryptUtil` 中仅用于本地演示的 `main(...)` 和固定示例值，避免工具类继续夹带无关调试逻辑。
+
+本次自检重点：
+- 跨域白名单现在可以通过环境变量统一配置，不再把历史域名和 IP 写死在源码里。
+- 认证侧跨域配置和 `allowCredentials` 的组合更符合 Spring 的预期行为。
+- `EncryptUtil` 保留纯工具职责，不再包含调试入口。
