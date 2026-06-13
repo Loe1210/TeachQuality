@@ -40,44 +40,36 @@ public class RoleServiceImpl implements RoleService {
     public List<EvaluationUserVO> getMajorEvaluationUser(Map<String, Object> map) {
         List<EvaluationUserVO> result = new ArrayList<>();
         majorEvaluationUserMapper.selectByMap(map).forEach(user -> {
-            EvaluationUserVO evaluationUserVO = new EvaluationUserVO()
-                    .setEvaluationUserId(user.getId())
-                    .setUserId(user.getUserId())
-                    .setClazzOrMajorId(user.getMajorId())
-                    .setUsername(userMapper.selectUserNameById(user.getUserId()))
-                    .setClazzOrMajorName(majorMapper.getMajorName(user.getMajorId()))
-                    .setKind("专业评审");
-            result.add(evaluationUserVO);
+            result.add(buildMajorEvaluationUserVO(
+                    user.getId(),
+                    user.getUserId(),
+                    user.getMajorId(),
+                    majorMapper.getMajorName(user.getMajorId()),
+                    "专业评审"));
         });
         majorReviewEvaluationUserMapper.selectByMap(map).forEach(user -> {
-            EvaluationUserVO evaluationUserVO = new EvaluationUserVO()
-                    .setEvaluationUserId(user.getId())
-                    .setUserId(user.getUserId())
-                    .setClazzOrMajorId(user.getMajorId())
-                    .setUsername(userMapper.selectUserNameById(user.getUserId()))
-                    .setClazzOrMajorName(majorMapper.getMajorName(user.getMajorId()))
-                    .setKind("专业复评");
-            result.add(evaluationUserVO);
+            result.add(buildMajorEvaluationUserVO(
+                    user.getId(),
+                    user.getUserId(),
+                    user.getMajorId(),
+                    majorMapper.getMajorName(user.getMajorId()),
+                    "专业复评"));
         });
         clazzEvaluationUserMapper.selectByMap(map).forEach(user -> {
-            EvaluationUserVO evaluationUserVO = new EvaluationUserVO()
-                    .setEvaluationUserId(user.getId())
-                    .setUserId(user.getUserId())
-                    .setClazzOrMajorId(user.getClazzId())
-                    .setUsername(userMapper.selectUserNameById(user.getUserId()))
-                    .setClazzOrMajorName(majorMapper.getMajorName(user.getClazzId()))
-                    .setKind("课程评审");
-            result.add(evaluationUserVO);
+            result.add(buildMajorEvaluationUserVO(
+                    user.getId(),
+                    user.getUserId(),
+                    user.getClazzId(),
+                    clazzMapper.getClazzName(user.getClazzId()),
+                    "课程评审"));
         });
         clazzReviewEvaluationUserMapper.selectByMap(map).forEach(user -> {
-            EvaluationUserVO evaluationUserVO = new EvaluationUserVO()
-                    .setEvaluationUserId(user.getId())
-                    .setUserId(user.getUserId())
-                    .setClazzOrMajorId(user.getClazzId())
-                    .setUsername(userMapper.selectUserNameById(user.getUserId()))
-                    .setClazzOrMajorName(majorMapper.getMajorName(user.getClazzId()))
-                    .setKind("课程复评");
-            result.add(evaluationUserVO);
+            result.add(buildMajorEvaluationUserVO(
+                    user.getId(),
+                    user.getUserId(),
+                    user.getClazzId(),
+                    clazzMapper.getClazzName(user.getClazzId()),
+                    "课程复评"));
         });
         return result;
     }
@@ -86,11 +78,7 @@ public class RoleServiceImpl implements RoleService {
     public Boolean createMajorEvaluationUser(String majorName, Integer userId) {
         Integer id = majorMapper.getMajorIdByName(majorName);
         if (id == null) return null;
-        QueryWrapper<MajorEvaluationUser> queryWrapper = new QueryWrapper<>();
-        queryWrapper
-                .eq("major_id", id)
-                .eq("user_id", userId);
-        if (majorEvaluationUserMapper.selectList(queryWrapper).isEmpty()) return false;
+        if (existsMajorEvaluationUser(id, userId)) return false;
         return majorEvaluationUserMapper.insert(new MajorEvaluationUser().setUserId(userId).setMajorId(id)) == 1;
     }
 
@@ -98,11 +86,7 @@ public class RoleServiceImpl implements RoleService {
     public Boolean createMajorReviewEvaluationUser(String majorName, Integer userId) {
         Integer id = majorMapper.getMajorIdByName(majorName);
         if (id == null) return null;
-        QueryWrapper<MajorReviewEvaluationUser> queryWrapper = new QueryWrapper<>();
-        queryWrapper
-                .eq("major_id", id)
-                .eq("user_id", userId);
-        if (majorReviewEvaluationUserMapper.selectList(queryWrapper).isEmpty()) return false;
+        if (existsMajorReviewEvaluationUser(id, userId)) return false;
         return majorReviewEvaluationUserMapper.insert(new MajorReviewEvaluationUser().setUserId(userId).setMajorId(id)) == 1;
     }
 
@@ -110,11 +94,7 @@ public class RoleServiceImpl implements RoleService {
     public Boolean createClazzEvaluationUser(String clazzName, Integer userId) {
         Integer id = clazzMapper.getClazzIdByName(clazzName);
         if (id == null) return null;
-        QueryWrapper<ClazzEvaluationUser> queryWrapper = new QueryWrapper<>();
-        queryWrapper
-                .eq("clazz_id", id)
-                .eq("user_id", userId);
-        if (clazzEvaluationUserMapper.selectList(queryWrapper).isEmpty()) return false;
+        if (existsClazzEvaluationUser(id, userId)) return false;
         return clazzEvaluationUserMapper.insert(new ClazzEvaluationUser().setClazzId(id).setUserId(userId)) == 1;
     }
 
@@ -122,11 +102,7 @@ public class RoleServiceImpl implements RoleService {
     public Boolean createClazzReviewEvaluationUser(String clazzName, Integer userId) {
         Integer id = clazzMapper.getClazzIdByName(clazzName);
         if (id == null) return null;
-        QueryWrapper<ClazzReviewEvaluationUser> queryWrapper = new QueryWrapper<>();
-        queryWrapper
-                .eq("clazz_id", id)
-                .eq("user_id", userId);
-        if (clazzReviewEvaluationUserMapper.selectList(queryWrapper).isEmpty()) return false;
+        if (existsClazzReviewEvaluationUser(id, userId)) return false;
         return clazzReviewEvaluationUserMapper.insert(new ClazzReviewEvaluationUser().setClazzId(id).setUserId(userId)) == 1;
     }
 
@@ -187,5 +163,45 @@ public class RoleServiceImpl implements RoleService {
         }
 
         return null;
+    }
+
+    private EvaluationUserVO buildMajorEvaluationUserVO(
+            Integer evaluationUserId,
+            Integer userId,
+            Integer clazzOrMajorId,
+            String clazzOrMajorName,
+            String kind
+    ) {
+        return new EvaluationUserVO()
+                .setEvaluationUserId(evaluationUserId)
+                .setUserId(userId)
+                .setClazzOrMajorId(clazzOrMajorId)
+                .setUsername(userMapper.selectUserNameById(userId))
+                .setClazzOrMajorName(clazzOrMajorName)
+                .setKind(kind);
+    }
+
+    private boolean existsMajorEvaluationUser(Integer majorId, Integer userId) {
+        QueryWrapper<MajorEvaluationUser> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("major_id", majorId).eq("user_id", userId);
+        return !majorEvaluationUserMapper.selectList(queryWrapper).isEmpty();
+    }
+
+    private boolean existsMajorReviewEvaluationUser(Integer majorId, Integer userId) {
+        QueryWrapper<MajorReviewEvaluationUser> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("major_id", majorId).eq("user_id", userId);
+        return !majorReviewEvaluationUserMapper.selectList(queryWrapper).isEmpty();
+    }
+
+    private boolean existsClazzEvaluationUser(Integer clazzId, Integer userId) {
+        QueryWrapper<ClazzEvaluationUser> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("clazz_id", clazzId).eq("user_id", userId);
+        return !clazzEvaluationUserMapper.selectList(queryWrapper).isEmpty();
+    }
+
+    private boolean existsClazzReviewEvaluationUser(Integer clazzId, Integer userId) {
+        QueryWrapper<ClazzReviewEvaluationUser> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("clazz_id", clazzId).eq("user_id", userId);
+        return !clazzReviewEvaluationUserMapper.selectList(queryWrapper).isEmpty();
     }
 }
