@@ -609,3 +609,18 @@
 本次自检重点：
 - 消费端现在具备“成功只执行一次、失败允许重试”的最小幂等保护。
 - 这一轮还没有把生产端 `msg_log` 和消费端 `msg_consume_log` 串成统一运维面板，后续如果继续深化，可补死信告警和人工重放入口。
+
+### 2026-06-13 模块 10：P3 token 黑名单与退出登录
+
+- 分支：`feat/p3-token-blacklist-logout`
+- 范围：`micro-oauth2-auth`、`micro-oauth2-gateway`
+
+本次完成：
+- 在 `AuthController` 新增 `DELETE /oauth/logout`，支持从 `Authorization: Bearer ...` 中提取 access token 并加入 Redis 黑名单。
+- 黑名单 TTL 按 token 剩余有效期自动计算，避免注销记录无限堆积。
+- 在 Gateway 前置过滤器中增加黑名单校验，命中黑名单时直接返回 `401`，不再继续后续 JWT 鉴权与业务转发。
+- 统一补充 `AUTH:TOKEN_BLACKLIST:` Redis key 前缀，明确认证服务与网关的共享约定。
+
+本次自检重点：
+- 退出登录后，旧 token 会在剩余有效期内持续失效，而不是只能“客户端自己删掉 token”。
+- 这一轮还没有补 `refresh token` 刷新和 `permissionVersion/tokenVersion` 版本化失效，后续模块继续补齐。
