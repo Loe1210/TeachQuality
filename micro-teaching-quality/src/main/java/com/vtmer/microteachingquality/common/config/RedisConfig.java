@@ -10,6 +10,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +29,15 @@ import static org.springframework.data.redis.cache.RedisCacheConfiguration.defau
 @Configuration
 @EnableCaching
 public class RedisConfig {
+
+    @Value("${spring.redis.host}")
+    private String redisHost;
+
+    @Value("${spring.redis.port}")
+    private Integer redisPort;
+
+    @Value("${spring.redis.password:}")
+    private String redisPassword;
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
@@ -95,8 +105,12 @@ public class RedisConfig {
     @Bean
     public RedissonClient redissonClient() {
         Config config = new Config();
-        // 添加redis地址，这里添加了单点的地址
-        config.useSingleServer().setAddress("redis://117.72.95.156:6379").setPassword("vtmer2024");
+        String address = String.format("redis://%s:%s", redisHost, redisPort);
+        if (redisPassword == null || redisPassword.trim().isEmpty()) {
+            config.useSingleServer().setAddress(address);
+        } else {
+            config.useSingleServer().setAddress(address).setPassword(redisPassword);
+        }
         return Redisson.create(config);
     }
 

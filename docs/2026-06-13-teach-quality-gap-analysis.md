@@ -490,3 +490,23 @@
 - 角色权限新增接口现在既符合 HTTP 语义，也兼容旧前端调用路径。
 - 课程权限查询结果不再出现“课程 ID 去查专业名”的错配。
 - 重复权限关系会被正确拦截，不重复的数据可以正常创建。
+
+### 2026-06-13 模块 04：P1 日志安全与敏感配置外置化
+
+- 分支：`feat/p1-aspect-log-hardening`
+- 范围：`AspectConfig`、`RedisConfig`、JWT `TokenConfig`、多模块 `application*.yml`
+
+本次完成：
+- 重写了 `AspectConfig` 的用户解析与参数日志逻辑：
+  - 匿名请求或异常认证上下文不再因为直接取 `principal` 报错。
+  - 去掉了对不存在的 `UserController.logout(..)` 排除条件，避免切面配置和实际代码继续漂移。
+  - 接口参数日志改为按参数名输出，并对 `password/pwd/token/authorization/secret` 等敏感字段脱敏。
+  - 日志内容增加长度裁剪，避免超长请求体直接刷屏。
+- 把 `micro-oauth2-auth`、`micro-oauth2-gateway`、`micro-teaching-quality` 中 JWT keystore 口令和别名改为从配置读取，不再硬编码在 Java 代码里。
+- 把多模块中的 Nacos、MySQL、Redis、RocketMQ、Druid 登录配置改成环境变量占位符，减少仓库内明文敏感信息。
+- 把 `RedisConfig` 中写死的 Redisson 地址和密码改为复用 `spring.redis.*` 配置，避免应用内出现第二套独立明文 Redis 配置。
+
+本次自检重点：
+- 切面在未登录、认证异常、参数包含敏感信息的情况下都能更稳地记录日志。
+- JWT 口令和中间件地址已从源码常量移出，后续部署可以直接走环境注入。
+- 本模块仍然没有处理所有历史硬编码项，例如 `EncryptUtil`、`CorsConfig`、代码生成配置等，后续模块继续收敛。

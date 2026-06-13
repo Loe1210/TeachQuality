@@ -11,17 +11,17 @@ spring:
     # 如果存在多个数据源，监控的时候可以通过名字来区分开来
     name: mysql
     # 连接数据库的url
-    url: jdbc:mysql://117.72.95.156:3306/teach_quality?characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    url: ${TEACH_QUALITY_PROD_DB_URL:jdbc:mysql://127.0.0.1:3306/teach_quality?characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
     # 连接数据库的账号
-    username: lighthouse
+    username: ${TEACH_QUALITY_PROD_DB_USERNAME:root}
     # 连接数据库的密码
-    password: vtmer2024!
+    password: ${TEACH_QUALITY_PROD_DB_PASSWORD:}
 
   redis:
-    host: 117.72.95.156
-    port: 6379
+    host: ${TEACH_QUALITY_PROD_REDIS_HOST:127.0.0.1}
+    port: ${TEACH_QUALITY_PROD_REDIS_PORT:6379}
     # redis密码，默认为空
-    password: vtmer2024
+    password: ${TEACH_QUALITY_PROD_REDIS_PASSWORD:}
     database: 0
   # 开启热部署
   devtools:

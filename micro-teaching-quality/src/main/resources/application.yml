@@ -5,7 +5,7 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: http://117.72.95.156:8848
+        server-addr: ${NACOS_SERVER_ADDR:http://127.0.0.1:8848}
 
     inetutils:
       ignored-interfaces:
@@ -49,8 +49,8 @@ spring:
       stat-view-servlet:
         url-pattern: /druid/*
         # 登录用户名/密码
-        login-username: lighthouse
-        login-password: vtmer2024!
+        login-username: ${DRUID_LOGIN_USERNAME:admin}
+        login-password: ${DRUID_LOGIN_PASSWORD:change-me}
   servlet:
     multipart:
       # 修改文件最大上传限制
@@ -80,4 +80,10 @@ server:
 rocketmq:
   producer:
     group: messageProducerGroup
-  name-server: "175.178.67.249:9876"
+  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+
+security:
+  jwt:
+    key-store-password: ${JWT_KEYSTORE_PASSWORD:changeit}
+    key-pair-alias: ${JWT_KEY_PAIR_ALIAS:jwt}
+    key-pair-password: ${JWT_KEY_PAIR_PASSWORD:changeit}

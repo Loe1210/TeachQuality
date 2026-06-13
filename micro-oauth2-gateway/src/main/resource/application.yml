@@ -8,7 +8,7 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: http://117.72.95.156:8848
+        server-addr: ${NACOS_SERVER_ADDR:http://127.0.0.1:8848}
 
 
     gateway:
@@ -47,11 +47,16 @@ spring:
           lower-case-service-id: true #使用小写服务名，默认是大写
   redis:
     database: 0
-    port: 6379
-    host: 117.72.95.156
-    password: vtmer2024
+    port: ${GATEWAY_REDIS_PORT:6379}
+    host: ${GATEWAY_REDIS_HOST:127.0.0.1}
+    password: ${GATEWAY_REDIS_PASSWORD:}
   main:
     allow-bean-definition-overriding: true
+security:
+  jwt:
+    key-store-password: ${JWT_KEYSTORE_PASSWORD:changeit}
+    key-pair-alias: ${JWT_KEY_PAIR_ALIAS:jwt}
+    key-pair-password: ${JWT_KEY_PAIR_PASSWORD:changeit}
 secure:
   ignore:
     urls: #配置白名单路径
