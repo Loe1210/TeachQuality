@@ -33,6 +33,7 @@ tmp_doc_extract.txt
 *.pid
 *.seed
 *.lock
+storage/
 
 # Java
 *.class

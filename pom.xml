@@ -22,6 +22,7 @@
         <module>micro-oauth2-gateway</module>
         <module>micro-oauth2-auth</module>
         <module>micro-teaching-message</module>
+        <module>micro-teaching-file</module>
     </modules>
 
     <properties>
