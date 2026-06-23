@@ -39,6 +39,8 @@ public interface MajorEvaluationProcessService {
 
     boolean principalUploadMaterial(MultipartFile file, Long majorEvaluationProcessId);
 
+    boolean principalBindMaterial(Long fileObjectId, Long majorEvaluationProcessId);
+
 
     List<MajorEvaluationGetFileResult> getEvaluationMaterialInformation(Long majorEvaluationProcessId);
 

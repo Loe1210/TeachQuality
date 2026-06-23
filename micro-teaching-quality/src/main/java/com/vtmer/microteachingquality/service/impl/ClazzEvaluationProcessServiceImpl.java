@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vtmer.microteachingquality.common.component.EvaluationMessageProducer;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.constant.topic.ClazzEvaluationTopic;
 import com.vtmer.microteachingquality.common.constant.enums.EvaluationProcessStatus;
 import com.vtmer.microteachingquality.common.constant.enums.UserTypeConstant;
@@ -17,6 +18,7 @@ import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.mapper.*;
 import com.vtmer.microteachingquality.model.bo.ClazzEvaluationLeaderBO;
 import com.vtmer.microteachingquality.model.dto.ClazzOpinionRecordDTO;
+import com.vtmer.microteachingquality.model.dto.file.FileServiceFileObjectDTO;
 import com.vtmer.microteachingquality.model.pojo.User;
 import com.vtmer.microteachingquality.model.pojo.clazzevaluation.*;
 import com.vtmer.microteachingquality.model.vo.*;
@@ -79,6 +81,8 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
     private ClazzFileService clazzFileService;
     @Resource
     private EvaluationMessageProducer evaluationMessageProducer;
+    @Resource
+    private FileObjectReferenceService fileObjectReferenceService;
 
 
     @SneakyThrows
@@ -210,6 +214,9 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
 
         if (clazzFile != null) {
             //数据库中已经有记录,报错
+            if (fileObjectReferenceService.isFileObjectReference(clazzFile.getPath())) {
+                fileObjectReferenceService.deleteReferencedFile(clazzFile.getPath(), user.getId());
+            }
             clazzService.deleteUploadedFile(clazzFile.getPath());
 
 //            throw new CustomException(EvaluationProcessStatus.FILE_EXIST);
@@ -244,6 +251,47 @@ public class ClazzEvaluationProcessServiceImpl extends ServiceImpl<ClazzEvaluati
         log.info("用户id {} {} 调用，流程id：{}", user.getId(), user.getRealName(), evaluationId);
         log.info("用户 {} {} 上传课程自评报告成功，流程id：{},文件名为 {} ", user.getId(), user.getRealName(), evaluationId, file.getOriginalFilename());
         return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean principalBindMaterial(Long fileObjectId, Long evaluationId) {
+        User user = UserUtil.getCurrentUser();
+        FileServiceFileObjectDTO fileObject = fileObjectReferenceService.getFileObject(fileObjectId);
+        String originalFileName = fileObject.getOriginalName();
+        if (StrUtil.isBlank(originalFileName)) {
+            throw new CustomException("文件对象缺少原始文件名");
+        }
+
+        ClazzFile existedFile = clazzService.exitFile(user.getId(), evaluationId, originalFileName);
+        if (existedFile != null) {
+            if (fileObjectReferenceService.isFileObjectReference(existedFile.getPath())) {
+                fileObjectReferenceService.deleteReferencedFile(existedFile.getPath(), user.getId());
+            }
+            clazzService.deleteUploadedFile(existedFile.getPath());
+        }
+
+        Integer clazzId = clazzEvaluationProcessMapper.selectById(evaluationId).getClazzId();
+        ClazzFile clazzFileInsert = new ClazzFile();
+        clazzFileInsert.setUserId(user.getId());
+        clazzFileInsert.setFileName(originalFileName);
+        clazzFileInsert.setClazzId(clazzId);
+        clazzFileInsert.setClazzEvaluationProcessId(evaluationId);
+        clazzFileInsert.setPath(fileObjectReferenceService.buildReference(fileObjectId));
+
+        ClassEvaluationProcess classEvaluationProcess = clazzEvaluationProcessMapper.selectById(evaluationId);
+        if (classEvaluationProcess.getPrincipalMaterialStatus().equals(UNDERWAY)) {
+            classEvaluationProcess.setPrincipalMaterialStatus(END);
+            classEvaluationProcess.setExpertReviewStatus(UNDERWAY);
+            classEvaluationProcess.updateById();
+        }
+
+        if (clazzFileMapper.insert(clazzFileInsert) > 0) {
+            evaluationMessageProducer.sendClazzEvaluationMessage(ClazzEvaluationTopic.PRINCIPAL_UPLOAD, user.getId(), evaluationId);
+            log.info("用户 {} {} 绑定课程文件对象成功，流程id：{}, fileObjectId={}", user.getId(), user.getRealName(), evaluationId, fileObjectId);
+            return true;
+        }
+        throw new CustomException("绑定课程自评材料失败");
     }
 
     @Override

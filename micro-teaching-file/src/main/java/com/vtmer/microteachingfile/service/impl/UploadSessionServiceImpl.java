@@ -257,20 +257,13 @@ public class UploadSessionServiceImpl implements UploadSessionService {
 
     @Override
     public FileObjectResponse getFileObject(Long fileObjectId) {
-        FileObject fileObject = fileObjectMapper.selectById(fileObjectId);
-        if (fileObject == null) {
-            throw new CustomException("文件对象不存在");
-        }
-        return buildFileObjectResponse(fileObject);
+        return buildFileObjectResponse(getReadyFileObject(fileObjectId));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteFileObject(Long fileObjectId, Integer operatorUserId) {
-        FileObject fileObject = fileObjectMapper.selectById(fileObjectId);
-        if (fileObject == null) {
-            throw new CustomException("文件对象不存在");
-        }
+        FileObject fileObject = getReadyFileObject(fileObjectId);
         if (!fileObject.getCreateUserId().equals(operatorUserId)) {
             throw new CustomException("无权删除该文件对象");
         }
@@ -282,6 +275,24 @@ public class UploadSessionServiceImpl implements UploadSessionService {
         } catch (IOException e) {
             throw new CustomException("删除文件失败");
         }
+    }
+
+    @Override
+    public FileObject getReadyFileObject(Long fileObjectId) {
+        FileObject fileObject = fileObjectMapper.selectById(fileObjectId);
+        if (fileObject == null) {
+            throw new CustomException("文件对象不存在");
+        }
+        if (!FileObjectStatus.READY.equals(fileObject.getStatus())) {
+            throw new CustomException("文件对象当前不可用");
+        }
+        return fileObject;
+    }
+
+    @Override
+    public Path getFileObjectPath(Long fileObjectId) {
+        FileObject fileObject = getReadyFileObject(fileObjectId);
+        return fileStorageService.resolveObjectPath(fileObject.getStoragePath());
     }
 
     private void validateCreateRequest(CreateUploadSessionRequest request) {
