@@ -639,3 +639,40 @@
 本次自检重点：
 - 角色权限一旦被修改，用户需要重新登录获取新 token，旧 token 不会继续带着过期权限工作。
 - 这一轮还没有做 refresh token 的同步失效控制，如果后续继续深化，可以把 refresh token 也纳入版本校验。
+
+### 2026-06-24 模块 12：P4 独立文件服务与大文件上传链路
+
+- 分支：`feat/p4-file-service-large-upload`
+- 范围：新增 `micro-teaching-file` 模块、根工程接入、建表 SQL、最小测试
+
+本次完成：
+- 新增独立文件服务 `micro-teaching-file`，把“大文件上传能力”从 `micro-teaching-quality` 中拆出来，形成独立微服务骨架。
+- 完成三张核心表对应的实体、Mapper、Service 和接口设计：
+  - `file_object`
+  - `upload_session`
+  - `upload_chunk`
+- 落地了完整的分片上传链路：
+  - 初始化上传会话
+  - 查询断点续传状态
+  - 上传单个分片
+  - 合并完成上传
+  - 取消上传会话
+  - 查询/删除文件对象
+- 引入了会话级分布式锁，避免同一上传会话被并发分片写入、重复完成合并或取消时出现竞态。
+- 实现了本地存储抽象 `LocalFileStorageService`，并按流式方式合并分片，避免再次把所有分片整块读入 JVM 内存。
+- 补上了大文件链路的关键校验：
+  - 整文件大小校验
+  - 分片大小校验
+  - 客户端整文件 hash 校验
+  - 可选分片 hash 校验
+  - MIME 探测校验
+  - 魔数校验
+  - 文件 hash 去重复用
+- 增加了超时清理任务，对长时间未完成的上传会话自动过期并回收临时分片目录。
+- 补充了 `docs/sql/2026-06-24-file-service.sql`，交付新模块建表脚本。
+- 补充了 `FileTypeDetectorTest` 与 `LocalFileStorageServiceTest`，覆盖基础文件类型识别与流式分片合并能力。
+
+本次自检重点：
+- 当前文件服务已经具备“分片上传 + 断点续传 + 合并校验 + 去重 + 超时清理”的最小可用闭环。
+- `micro-teaching-quality` 里的历史 `MultipartFile` 直传接口还没有整体切换到 `fileObjectId` 绑定模式，这会作为后续业务接入层改造继续推进。
+- Maven 自动化验证目前受本地沙箱网络限制影响，需要放开依赖下载后再做一次正式构建复核。

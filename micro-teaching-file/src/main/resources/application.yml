@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: micro-teaching-file
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:http://127.0.0.1:8848}
+  profiles:
+    active: test
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    druid:
+      filters: stat
+      maxActive: 20
+      initialSize: 8
+      maxWait: 60000
+      minIdle: 1
+      timeBetweenEvictionRunsMillis: 60000
+      minEvictableIdleTimeMillis: 300000
+      validationQuery: select 1
+      testWhileIdle: true
+      testOnBorrow: false
+      testOnReturn: false
+      stat-view-servlet:
+        url-pattern: /druid/*
+        login-username: ${DRUID_LOGIN_USERNAME:admin}
+        login-password: ${DRUID_LOGIN_PASSWORD:change-me}
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 150MB
+  redis:
+    database: 0
+    host: ${FILE_REDIS_HOST:127.0.0.1}
+    port: ${FILE_REDIS_PORT:6379}
+    password: ${FILE_REDIS_PASSWORD:}
+server:
+  port: 9701
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+file:
+  storage:
+    root-dir: ${FILE_STORAGE_ROOT:./storage/file-service}
+    temp-dir: ${FILE_STORAGE_TEMP:./storage/file-service/temp}
+    object-dir: ${FILE_STORAGE_OBJECT:./storage/file-service/object}
+    provider: ${FILE_STORAGE_PROVIDER:local}
+  upload:
+    allowed-extensions: ${FILE_ALLOWED_EXTENSIONS:pdf,doc,docx,xls,xlsx,zip,jpg,jpeg,png}
+    max-file-size-bytes: ${FILE_MAX_SIZE_BYTES:1073741824}
+    default-chunk-size-bytes: ${FILE_DEFAULT_CHUNK_SIZE_BYTES:5242880}
+    max-concurrent-sessions-per-user: ${FILE_MAX_CONCURRENT_SESSIONS_PER_USER:3}
+    session-expire-minutes: ${FILE_SESSION_EXPIRE_MINUTES:120}
+    max-complete-retry-count: ${FILE_MAX_COMPLETE_RETRY_COUNT:3}
