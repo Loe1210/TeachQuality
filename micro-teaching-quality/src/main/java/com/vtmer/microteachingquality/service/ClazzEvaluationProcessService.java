@@ -53,6 +53,8 @@ public interface ClazzEvaluationProcessService extends IService<ClassEvaluationP
      */
     Boolean principalUploadMaterial(MultipartFile file, Long clazzEvaluationProcessId) throws MQBrokerException, RemotingException, IOException, InterruptedException, MQClientException;
 
+    Boolean principalBindMaterial(Long fileObjectId, Long clazzEvaluationProcessId);
+
 
     /**
      * 课程负责人获取自己上传的文件list

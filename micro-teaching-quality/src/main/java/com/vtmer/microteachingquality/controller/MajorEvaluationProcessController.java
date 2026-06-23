@@ -9,6 +9,7 @@ import cn.hutool.crypto.symmetric.AES;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSON;
 import com.vtmer.microteachingquality.common.ResponseMessage;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.constant.enums.UserType;
 import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.model.bo.*;
@@ -78,6 +79,8 @@ public class MajorEvaluationProcessController {
 
     @Resource
     private MajorEvaluationRecodeService majorEvaluationRecodeService;
+    @Resource
+    private FileObjectReferenceService fileObjectReferenceService;
 
     @ApiOperation("获取专业评审流程的状态信息")
     @GetMapping("/status")
@@ -113,10 +116,28 @@ public class MajorEvaluationProcessController {
         return majorEvaluationProcessService.principalUploadMaterial(file, Long.valueOf(majorEvaluationProcessId)) ? ResponseMessage.newSuccessInstance("上传成功") : ResponseMessage.newErrorInstance("上传失败");
     }
 
+    @ApiOperation("第一阶段 (评审流程负责人)绑定文件服务已上传的自评报告")
+    @PostMapping("/principalBind/{evaluationProcessId}")
+    public ResponseMessage<String> bindMajorMaterial(@Validated @RequestBody FileObjectBindBO fileObjectBindBO,
+                                                     @NotNull(message = "课程评审流程Id为空") @ApiParam("专业评审流程Id") @PathVariable("evaluationProcessId") String majorEvaluationProcessId) {
+        return majorEvaluationProcessService.principalBindMaterial(fileObjectBindBO.getFileObjectId(), Long.valueOf(majorEvaluationProcessId))
+                ? ResponseMessage.newSuccessInstance("绑定成功")
+                : ResponseMessage.newErrorInstance("绑定失败");
+    }
+
     @ApiOperation("(专业评审专家)下载专业评审提交的文件")
     @GetMapping("/report/download")
     public void majorDownload(@Validated @ApiParam("文件加密路径") String path, HttpServletResponse response) {
         User loginUser = JSON.parseObject(JSONUtil.toJsonStr(SecurityContextHolder.getContext().getAuthentication().getPrincipal()), User.class);
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.writeReferencedFileToResponse(path, response);
+                log.info("用户 {} 下载专业文件对象成功: {}", loginUser.getRealName(), path);
+            } catch (Exception e) {
+                log.error("用户{}下载专业文件对象失败: {}", loginUser.getRealName(), e.getMessage());
+            }
+            return;
+        }
         //解密路径
         String filePath = reportPath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         log.info("解密后文件路径: {}", filePath);
@@ -250,6 +271,16 @@ public class MajorEvaluationProcessController {
                           HttpServletResponse response) {
         User user = UserUtil.getCurrentUser();
 
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.writeReferencedFileToResponse(path, response);
+                log.info("用户{} {}预览文件对象成功: {}", user.getId(), user.getRealName(), path);
+            } catch (Exception e) {
+                log.error("用户{} {} 预览文件对象失败: {}", user.getId(), user.getRealName(), e.getMessage());
+            }
+            return;
+        }
+
         MajorEvaluationFile majorEvaluationFile = majorEvaluationFileService.getMajorEvaluationFileByPath(path);
         if (ObjectUtil.isNull(majorEvaluationFile)) {
             throw new CustomException("学校未上传自评报告模版或专业负责人未完成填写自评报告，暂无法查看");
@@ -307,6 +338,9 @@ public class MajorEvaluationProcessController {
     @ApiOperation("删除专业负责人已上传的专业自评报告")
     @DeleteMapping("/material")
     public ResponseMessage<List<MajorEvaluationGetFileResult>> deleteReport(@ApiParam("文件路径") @NotNull(message = "id为空") String path) {
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            fileObjectReferenceService.deleteReferencedFile(path, UserUtil.getCurrentUser().getId());
+        }
         return ResponseMessage.newSuccessInstance(majorEvaluationFileService.deleteMajorFileRecord(path));
     }
 

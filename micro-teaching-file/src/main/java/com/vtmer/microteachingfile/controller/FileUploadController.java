@@ -3,17 +3,27 @@ package com.vtmer.microteachingfile.controller;
 import com.hung.microoauth2commons.commonutils.api.Result;
 import com.vtmer.microteachingfile.model.dto.CompleteUploadSessionRequest;
 import com.vtmer.microteachingfile.model.dto.CreateUploadSessionRequest;
+import com.vtmer.microteachingfile.model.pojo.FileObject;
 import com.vtmer.microteachingfile.model.vo.CreateUploadSessionResponse;
 import com.vtmer.microteachingfile.model.vo.FileObjectResponse;
 import com.vtmer.microteachingfile.model.vo.UploadSessionDetailResponse;
 import com.vtmer.microteachingfile.service.UploadSessionService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Api(tags = "文件上传接口")
 @RestController
@@ -70,5 +80,26 @@ public class FileUploadController {
     public Result<String> deleteFileObject(@PathVariable Long fileObjectId, @RequestParam Integer operatorUserId) {
         uploadSessionService.deleteFileObject(fileObjectId, operatorUserId);
         return Result.success("删除文件成功");
+    }
+
+    @ApiOperation("下载文件对象")
+    @GetMapping("/objects/{fileObjectId}/download")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadFileObject(@PathVariable Long fileObjectId) throws IOException {
+        FileObject fileObject = uploadSessionService.getReadyFileObject(fileObjectId);
+        Path filePath = uploadSessionService.getFileObjectPath(fileObjectId);
+        org.springframework.core.io.Resource resource = new FileSystemResource(filePath);
+        String encodedName = URLEncoder.encode(fileObject.getOriginalName(), StandardCharsets.UTF_8);
+        String contentType = fileObject.getContentType();
+        if (contentType == null || contentType.isBlank()) {
+            contentType = Files.probeContentType(filePath);
+        }
+        MediaType mediaType = contentType == null || contentType.isBlank()
+                ? MediaType.APPLICATION_OCTET_STREAM
+                : MediaType.parseMediaType(contentType);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=" + encodedName)
+                .contentType(mediaType)
+                .contentLength(Files.size(filePath))
+                .body(resource);
     }
 }

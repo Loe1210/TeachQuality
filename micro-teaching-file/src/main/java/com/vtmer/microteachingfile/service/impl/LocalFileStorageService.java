@@ -65,4 +65,9 @@ public class LocalFileStorageService implements FileStorageService {
             FileUtil.del(rootPath.toFile());
         }
     }
+
+    @Override
+    public Path resolveObjectPath(String storagePath) {
+        return Path.of(fileStorageProperties.getObjectDir(), storagePath);
+    }
 }

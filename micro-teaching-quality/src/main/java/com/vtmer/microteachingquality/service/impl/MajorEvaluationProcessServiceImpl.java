@@ -9,11 +9,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vtmer.microteachingquality.common.component.EvaluationMessageProducer;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.constant.topic.MajorEvaluationTopic;
 import com.vtmer.microteachingquality.common.constant.enums.UserTypeConstant;
 import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.mapper.*;
 import com.vtmer.microteachingquality.model.bo.*;
+import com.vtmer.microteachingquality.model.dto.file.FileServiceFileObjectDTO;
 import com.vtmer.microteachingquality.model.pojo.User;
 import com.vtmer.microteachingquality.model.pojo.majorevaluation.*;
 import com.vtmer.microteachingquality.model.vo.FinishedReviewVO;
@@ -77,6 +79,8 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
     private MajorEvaluationFileService majorEvaluationFileService;
     @Resource
     private EvaluationMessageProducer evaluationMessageProducer;
+    @Resource
+    private FileObjectReferenceService fileObjectReferenceService;
 
 
     @SneakyThrows
@@ -283,6 +287,51 @@ public class MajorEvaluationProcessServiceImpl implements MajorEvaluationProcess
         }
         log.info("用户id {} {} 在专业评审上传自评报告失败，专业评审流程id：{}", user.getId(), user.getRealName(), majorEvaluationProcessId);
         throw new CustomException("上传自评报告失败");
+    }
+
+    @Override
+    public boolean principalBindMaterial(Long fileObjectId, Long majorEvaluationProcessId) {
+        User user = UserUtil.getCurrentUser();
+        FileServiceFileObjectDTO fileObject = fileObjectReferenceService.getFileObject(fileObjectId);
+        String originalFileName = fileObject.getOriginalName();
+        if (StrUtil.isBlank(originalFileName)) {
+            throw new CustomException("文件对象缺少原始文件名");
+        }
+
+        MajorEvaluationProcess process = majorEvaluationProcessMapper.selectById(majorEvaluationProcessId);
+        if (process == null) {
+            throw new CustomException("评审流程不存在");
+        }
+
+        long count = majorEvaluationFileService.count(new QueryWrapper<MajorEvaluationFile>()
+                .eq("user_id", user.getId())
+                .eq("major_evaluation_process_id", majorEvaluationProcessId)
+                .eq("file_name", originalFileName));
+        if (count != 0L) {
+            throw new CustomException("上传专业自评报告失败,已存在同名文件");
+        }
+
+        MajorEvaluationFile majorEvaluationFile = new MajorEvaluationFile(
+                process.getMajorId(),
+                user.getId(),
+                majorEvaluationProcessId,
+                originalFileName,
+                fileObjectReferenceService.buildReference(fileObjectId)
+        );
+
+        if (majorEvaluationFile.insert()) {
+            evaluationMessageProducer.sendMajorEvaluationMessage(MajorEvaluationTopic.PRINCIPAL_UPLOAD, user.getId(), majorEvaluationProcessId);
+
+            UpdateWrapper<MajorEvaluationProcess> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.set("principal_material_status", END);
+            updateWrapper.set("dean_review_status", UNDERWAY);
+            updateWrapper.eq("id", process.getId());
+            process.update(updateWrapper);
+
+            log.info("用户id {} {} 绑定专业文件对象成功，专业评审流程id：{}, fileObjectId={}", user.getId(), user.getRealName(), majorEvaluationProcessId, fileObjectId);
+            return true;
+        }
+        throw new CustomException("绑定专业自评材料失败");
     }
 
     @Override

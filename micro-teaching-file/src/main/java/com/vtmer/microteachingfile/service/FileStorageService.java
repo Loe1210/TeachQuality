@@ -12,4 +12,6 @@ public interface FileStorageService {
     String mergeChunks(String storedName, List<Path> chunkPaths, String relativeObjectDir) throws IOException;
 
     void deletePath(String storagePath) throws IOException;
+
+    Path resolveObjectPath(String storagePath);
 }

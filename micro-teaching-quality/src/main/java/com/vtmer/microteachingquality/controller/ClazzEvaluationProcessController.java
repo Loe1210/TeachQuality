@@ -8,9 +8,11 @@ import cn.hutool.crypto.symmetric.AES;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSON;
 import com.vtmer.microteachingquality.common.ResponseMessage;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.constant.enums.EvaluationProcessStatus;
 import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.model.bo.ClazzEvaluationLeaderBO;
+import com.vtmer.microteachingquality.model.bo.FileObjectBindBO;
 import com.vtmer.microteachingquality.model.bo.SubmitEvaluationRecordBO;
 import com.vtmer.microteachingquality.model.dto.ClazzInJudgeResultDTO;
 import com.vtmer.microteachingquality.model.pojo.User;
@@ -78,6 +80,8 @@ public class ClazzEvaluationProcessController implements EvaluationProcessStatus
     private ClazzFileService clazzFileService;
     @Resource
     private CourseEvaluationExpertService courseEvaluationExpertService;
+    @Resource
+    private FileObjectReferenceService fileObjectReferenceService;
 
 
     @PostMapping("/evaluationProcess/{clazzId}")
@@ -115,6 +119,15 @@ public class ClazzEvaluationProcessController implements EvaluationProcessStatus
         return clazzEvaluationProcessService.principalUploadMaterial(file, Long.valueOf(clazzEvaluationProcessId)) ? ResponseMessage.newSuccessInstance("上传成功") : ResponseMessage.newErrorInstance("上传失败");
     }
 
+    @ApiOperation("第一阶段 (评审流程负责人)绑定文件服务已上传的自评报告")
+    @PostMapping("/principalBind/{clazzEvaluationId}")
+    public ResponseMessage<String> clazzTemplateBind(@Validated @RequestBody FileObjectBindBO fileObjectBindBO,
+                                                     @NotBlank(message = "课程评审流程Id为空") @ApiParam("课程评审流程Id") @PathVariable("clazzEvaluationId") String clazzEvaluationProcessId) {
+        return clazzEvaluationProcessService.principalBindMaterial(fileObjectBindBO.getFileObjectId(), Long.valueOf(clazzEvaluationProcessId))
+                ? ResponseMessage.newSuccessInstance("绑定成功")
+                : ResponseMessage.newErrorInstance("绑定失败");
+    }
+
     @ApiOperation("获取所有课程评价的相关信息：文件path，评审状态，课程信息等 (作废)")
     @GetMapping("/clazzInfo")
     public ResponseMessage<List<GetAllClazzInfoResult>> getAllClazzInformation() {
@@ -146,6 +159,19 @@ public class ClazzEvaluationProcessController implements EvaluationProcessStatus
     @DeleteMapping("/uploadedFiles")
     public ResponseMessage<?> deleteUploadedFile(@NotNull(message = "路径为空") @ApiParam("文件路径") String path) {
         User loginUser = UserUtil.getCurrentUser();
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            ClazzFile clazzFile = clazzFileService.getClazzFile(path);
+            if (clazzFile == null) {
+                throw new CustomException("文件记录不存在");
+            }
+            if (!clazzFile.getUserId().equals(loginUser.getId())) {
+                throw new CustomException("非本人上传文件，您没有权限删除该文件");
+            }
+            fileObjectReferenceService.deleteReferencedFile(path, loginUser.getId());
+            return clazzFileService.deleteClazzFileRecord(clazzFile.getId())
+                    ? ResponseMessage.newSuccessInstance("删除课程自评报告成功")
+                    : ResponseMessage.newErrorInstance("删除课程自评报告失败");
+        }
         //解密路径
         String filePath = clazzPath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         ClazzFile clazzFile = clazzFileService.getClazzFile(path);
@@ -178,6 +204,15 @@ public class ClazzEvaluationProcessController implements EvaluationProcessStatus
     @GetMapping("/report/download")
     public void clazzDownload(@Validated @ApiParam("文件加密路径") String path, HttpServletResponse response) {
         User loginUser = JSON.parseObject(JSONUtil.toJsonStr(SecurityContextHolder.getContext().getAuthentication().getPrincipal()), User.class);
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.writeReferencedFileToResponse(path, response);
+                log.info("用户 {} 下载课程文件对象成功: {}", loginUser.getRealName(), path);
+            } catch (Exception e) {
+                log.error("用户{}下载课程文件对象失败: {}", loginUser.getRealName(), e.getMessage());
+            }
+            return;
+        }
         //解密路径
         String filePath = clazzPath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         log.info("解密后文件路径: {}", filePath);
