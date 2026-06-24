@@ -5,6 +5,7 @@ import com.vtmer.microteachingquality.model.bo.CreateNewMajorBatchVO;
 import com.vtmer.microteachingquality.model.bo.MajorArchiveReviewBO;
 import com.vtmer.microteachingquality.model.pojo.User;
 import com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveBatch;
+import com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveTemplateFile;
 import com.vtmer.microteachingquality.model.vo.*;
 
 import java.util.List;
@@ -19,6 +20,8 @@ public interface MajorArchiveProcessService extends IService<MajorArchiveBatch> 
 
     Boolean uploadFileRecord(User user, Long majorEvaluationBatchId, String fileName, String path);
 
+    Boolean bindUploadedFileRecord(Long fileObjectId, Long majorEvaluationBatchId);
+
     int deleteUploadedFileRecord(User user, String path);
 
     MajorArchiveGetUploadedFilesInfoResult getUploadedFilesInfo(Long batchId);
@@ -27,7 +30,11 @@ public interface MajorArchiveProcessService extends IService<MajorArchiveBatch> 
 
     int uploadTemplateFileRecord(User user, String fileName, String path);
 
+    int bindTemplateFileRecord(Long fileObjectId);
+
     int deleteTemplateFileRecord(String fileName, String path);
+
+    MajorArchiveTemplateFile getTemplateFileByPath(String path);
 
     List<MajorArchiveGetBatchFilesInfoResult> getBatchFilesInfo(String batchName, Integer majorId);
 

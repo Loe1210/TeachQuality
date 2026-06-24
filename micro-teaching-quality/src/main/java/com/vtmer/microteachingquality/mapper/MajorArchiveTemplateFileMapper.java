@@ -15,6 +15,8 @@ public interface MajorArchiveTemplateFileMapper {
 
     MajorArchiveTemplateFile selectByPrimaryKey(Integer id);
 
+    MajorArchiveTemplateFile selectByPath(String path);
+
     int updateByPrimaryKeySelective(MajorArchiveTemplateFile record);
 
     int updateByPrimaryKey(MajorArchiveTemplateFile record);

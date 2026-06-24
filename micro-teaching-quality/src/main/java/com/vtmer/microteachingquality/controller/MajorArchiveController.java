@@ -8,10 +8,14 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.symmetric.AES;
 import com.vtmer.microteachingquality.common.ResponseMessage;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.constant.enums.EvaluationProcessStatus;
+import com.vtmer.microteachingquality.common.util.DownloadUtil;
 import com.vtmer.microteachingquality.model.bo.CreateNewMajorBatchVO;
+import com.vtmer.microteachingquality.model.bo.FileObjectBindBO;
 import com.vtmer.microteachingquality.model.bo.MajorArchiveReviewBO;
 import com.vtmer.microteachingquality.model.pojo.User;
+import com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveTemplateFile;
 import com.vtmer.microteachingquality.model.vo.*;
 import com.vtmer.microteachingquality.service.MajorArchiveProcessService;
 import com.vtmer.microteachingquality.service.MajorArchiveService;
@@ -31,7 +35,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.io.*;
-import java.net.URLEncoder;
 import java.util.List;
 
 /**
@@ -63,6 +66,8 @@ public class MajorArchiveController implements EvaluationProcessStatus {
     private MajorArchiveProcessService majorArchiveProcessService;
     @Resource
     private MajorArchiveService majorArchiveService;
+    @Resource
+    private FileObjectReferenceService fileObjectReferenceService;
 
 
     @PostMapping("/process")
@@ -113,52 +118,39 @@ public class MajorArchiveController implements EvaluationProcessStatus {
 
     }
 
+    @ApiOperation("专业归档 绑定文件服务已上传的文件")
+    @PostMapping("/uploadFileBind/{batchId}")
+    public ResponseMessage<String> bindUploadedFile(@Validated @RequestBody FileObjectBindBO fileObjectBindBO,
+                                                    @NotNull(message = "专业归档批次Id为空") @PathVariable("batchId") String batchId) {
+        return majorArchiveProcessService.bindUploadedFileRecord(fileObjectBindBO.getFileObjectId(), Long.valueOf(batchId))
+                ? ResponseMessage.newSuccessInstance("绑定文件成功")
+                : ResponseMessage.newErrorInstance("绑定文件失败");
+    }
+
     @GetMapping("/downloadUploadedFile")
     @ApiOperation("专业归档 下载自己上传的文件")
     public void downloadFile(@NotBlank(message = "传入路径为空") @ApiParam("加密路径") String path,
                              HttpServletResponse response) {
         User loginUser = UserUtil.getCurrentUser();
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.writeReferencedFileToResponse(path, response);
+                log.info("用户 {} 下载归档文件对象成功: {}", loginUser.getRealName(), path);
+            } catch (Exception e) {
+                log.error("用户 {} 下载归档文件对象失败: {}", loginUser.getRealName(), e.getMessage());
+            }
+            return;
+        }
         //解密路径
         String filePath = archiveFilePath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         log.info("解密后文件路径: {}", filePath);
         // 截取文件名
         String fileName = StrUtil.subAfter(filePath, File.separator, true);
-        FileInputStream fis = null;
-        BufferedInputStream bis = null;
         try {
-            // 配置文件下载及避免呢中午呢乱码
-            response.setHeader("content-type", "application/octet-stream");
-            response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(fileName, "UTF-8"));
-            // 输入流
-            bis = new BufferedInputStream(new FileInputStream(filePath));
-            // 输出流
-            OutputStream os = response.getOutputStream();
-            byte[] buffer = new byte[1024];
-            int temp = 0;
-            // 每次读取的字符串长度
-            while ((temp = bis.read(buffer)) != -1) {
-                os.write(buffer, 0, temp);
-            }
-            //os正常写入了
+            DownloadUtil.downloadFile(fileName, filePath, response);
             log.info("用户 {} 下载归档文件成功: {}", loginUser.getRealName(), fileName);
         } catch (Exception e) {
             log.error("用户  {}  下载归档文件失败: {}", loginUser.getRealName(), e.getMessage());
-        } finally {
-            if (ObjectUtil.isNotNull(bis)) {
-                try {
-                    bis.close();
-                } catch (IOException e) {
-                    log.error("用户 {} 下载归档文件失败： {}", loginUser.getRealName(), e.getMessage());
-                }
-            }
-            if (ObjectUtil.isNotNull(fis)) {
-                try {
-                    fis.close();
-                } catch (IOException e) {
-                    log.error("用户 {} 下载归档文件失败： {}", loginUser.getRealName(), e.getMessage());
-                }
-            }
         }
     }
 
@@ -166,22 +158,30 @@ public class MajorArchiveController implements EvaluationProcessStatus {
     @PostMapping("/deleteUploadedFile")
     public ResponseMessage<String> deleteUploadedFile(@RequestBody @NotBlank(message = "传入路径为空") String path) {
         User loginUser = UserUtil.getCurrentUser();
+        if (majorArchiveProcessService.deleteUploadedFileRecord(loginUser, path) <= 0) {
+            return ResponseMessage.newErrorInstance("文件已经不存在");
+        }
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.deleteReferencedFile(path, loginUser.getId());
+                log.info("用户 {} 删除归档文件对象成功: {}", loginUser.getRealName(), path);
+                return ResponseMessage.newSuccessInstance("删除文件成功");
+            } catch (Exception e) {
+                log.error("用户：{} 删除归档文件对象失败: {}", loginUser.getRealName(), e.getMessage());
+                return ResponseMessage.newErrorInstance("删除文件失败");
+            }
+        }
         //解密路径
         String filePath = archiveFilePath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         log.info("解密后文件路径: {}", filePath);
         // 截取文件名
         String fileName = StrUtil.subAfter(filePath, File.separator, true);
         try {
-            if (majorArchiveProcessService.deleteUploadedFileRecord(loginUser, path) <= 0) {
-                return ResponseMessage.newErrorInstance("文件已经不存在");
-            }
-            // 输入流
             File file = new File(filePath);
             file.delete();
             if (file.exists()) {
                 log.error("用户  {}  删除归档文件失败: {}", loginUser.getRealName(), file.getName());
             } else {
-                //os正常写入了
                 log.info("用户 {} 删除归档文件成功: {}", loginUser.getRealName(), fileName);
             }
         } catch (Exception e) {
@@ -236,25 +236,45 @@ public class MajorArchiveController implements EvaluationProcessStatus {
         }
     }
 
+    @ApiOperation("专业归档负责人(超级管理员) 绑定文件服务中的模板文件")
+    @PostMapping("/bindTemplateFile")
+    public ResponseMessage<?> bindTemplateFile(@Validated @RequestBody FileObjectBindBO fileObjectBindBO) {
+        return majorArchiveProcessService.bindTemplateFileRecord(fileObjectBindBO.getFileObjectId()) > 0
+                ? ResponseMessage.newSuccessInstance("绑定文件成功")
+                : ResponseMessage.newErrorInstance("绑定文件失败");
+    }
+
 
     @ApiOperation("专业归档负责人(超级管理员) 删除模板文件")
     @PostMapping("/deleteTemplateFile")
     public ResponseMessage<?> deleteTemplateFile(String path) {
         User loginUser = UserUtil.getCurrentUser();
         boolean result = false;
+        MajorArchiveTemplateFile templateFile = majorArchiveProcessService.getTemplateFileByPath(path);
+        if (templateFile == null) {
+            return ResponseMessage.newErrorInstance("文件已经不存在");
+        }
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.deleteReferencedFile(path, loginUser.getId());
+                result = majorArchiveProcessService.deleteTemplateFileRecord(templateFile.getFileName(), path) > 0;
+                return result ? ResponseMessage.newSuccessInstance(true) : ResponseMessage.newErrorInstance("文件已经不存在");
+            } catch (Exception e) {
+                log.error("用户{}删除专业归档模板文件对象失败: {}", loginUser.getRealName(), e.getMessage());
+                return ResponseMessage.newErrorInstance("删除文件失败");
+            }
+        }
         String filePath = templatePath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         log.info("解密后文件路径: {}", filePath);
         // 截取文件名
         String fileName = StrUtil.subAfter(filePath, File.separator, true);
         try {
-            // 输入流
             File file = new File(filePath);
             result = file.delete();
             if (file.exists()) {
                 result = false;
                 log.error("用户{}删除课程自评报告失败: {}", loginUser.getRealName(), file.getName());
             } else {
-                //os正常写入了
                 log.info("用户 {} 删除课程自评报告成功: {}", loginUser.getRealName(), fileName);
             }
             if (majorArchiveProcessService.deleteTemplateFileRecord(fileName, path) <= 0) {
@@ -272,47 +292,25 @@ public class MajorArchiveController implements EvaluationProcessStatus {
     @GetMapping("/downloadTemplateFile")
     public void downloadTemplateFile(String path, HttpServletResponse response) {
         User loginUser = UserUtil.getCurrentUser();
+        if (fileObjectReferenceService.isFileObjectReference(path)) {
+            try {
+                fileObjectReferenceService.writeReferencedFileToResponse(path, response);
+                log.info("用户 {} 下载专业归档模板文件对象成功: {}", loginUser.getRealName(), path);
+            } catch (Exception e) {
+                log.error("用户 {} 下载专业归档模板文件对象失败: {}", loginUser.getRealName(), e.getMessage());
+            }
+            return;
+        }
         //解密路径
         String filePath = templatePath + File.separator + aes.decryptStr(path, CharsetUtil.CHARSET_UTF_8);
         log.info("解密后文件路径: {}", filePath);
         // 截取文件名
         String fileName = StrUtil.subAfter(filePath, File.separator, true);
-        FileInputStream fis = null;
-        BufferedInputStream bis = null;
         try {
-            // 配置文件下载及避免呢中午呢乱码
-            response.setHeader("content-type", "application/octet-stream");
-            response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(fileName, "UTF-8"));
-            // 输入流
-            bis = new BufferedInputStream(new FileInputStream(filePath));
-            // 输出流
-            OutputStream os = response.getOutputStream();
-            byte[] buffer = new byte[1024];
-            int temp = 0;
-            // 每次读取的字符串长度
-            while ((temp = bis.read(buffer)) != -1) {
-                os.write(buffer, 0, temp);
-            }
-            //os正常写入了
+            DownloadUtil.downloadFile(fileName, filePath, response);
             log.info("用户 {} 下载专业归档模板文件成功: {}", loginUser.getRealName(), fileName);
         } catch (Exception e) {
             log.error("用户 {} 下载专业归档模板文件失败: {}", loginUser.getRealName(), e.getMessage());
-        } finally {
-            if (ObjectUtil.isNotNull(bis)) {
-                try {
-                    bis.close();
-                } catch (IOException e) {
-                    log.error("{}", e.getMessage());
-                }
-            }
-            if (ObjectUtil.isNotNull(fis)) {
-                try {
-                    fis.close();
-                } catch (IOException e) {
-                    log.error("{}", e.getMessage());
-                }
-            }
         }
     }
 
