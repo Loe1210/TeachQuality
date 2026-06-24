@@ -1,6 +1,7 @@
 package com.vtmer.microteachingquality.controller;
 
 import com.vtmer.microteachingquality.common.ResponseMessage;
+import com.vtmer.microteachingquality.model.bo.FileObjectBindBO;
 import com.vtmer.microteachingquality.model.dto.ClazzTemplateDTO;
 import com.vtmer.microteachingquality.service.CourseReportService;
 import io.swagger.annotations.Api;
@@ -8,6 +9,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,6 +35,12 @@ public class CourseReportController {
         return ResponseMessage.newSuccessInstance(courseReportService.saveCourseReportTemplate(file), "上传课程评价模板成功");
     }
 
+    @PostMapping("/schoolAccount/bind")
+    @ApiOperation("(学校账户)绑定文件服务中的课程评价模板")
+    public ResponseMessage<Integer> bindCourseReport(@Validated @RequestBody FileObjectBindBO fileObjectBindBO) {
+        return ResponseMessage.newSuccessInstance(courseReportService.bindCourseReportTemplate(fileObjectBindBO.getFileObjectId()), "绑定课程评价模板成功");
+    }
+
     @GetMapping("/schoolAccount/template/{id}")
     @ApiOperation("(学校账户)根据记录id返回课程评价模板文件")
     public void getCourseReportTemplate(@ApiParam(value = "模板id") @PathVariable("id") Integer id,
@@ -45,6 +53,17 @@ public class CourseReportController {
     public ResponseMessage updateCourseReportTemplate(@ApiParam(value = "模板id") @PathVariable("id") Integer id,
                                                       @RequestPart MultipartFile file) {
         if (courseReportService.updateCourseReportTemplate(id, file) > 0) {
+            return ResponseMessage.newSuccessInstance("修改课程评价模板文件成功");
+        } else {
+            return ResponseMessage.newErrorInstance("修改课程评价模板文件失败");
+        }
+    }
+
+    @PutMapping("/schoolAccount/template/bind/{id}")
+    @ApiOperation("(学校账户)绑定文件服务中的课程评价模板并替换旧模板")
+    public ResponseMessage updateCourseReportTemplate(@ApiParam(value = "模板id") @PathVariable("id") Integer id,
+                                                      @Validated @RequestBody FileObjectBindBO fileObjectBindBO) {
+        if (courseReportService.updateCourseReportTemplate(id, fileObjectBindBO.getFileObjectId()) > 0) {
             return ResponseMessage.newSuccessInstance("修改课程评价模板文件成功");
         } else {
             return ResponseMessage.newErrorInstance("修改课程评价模板文件失败");
