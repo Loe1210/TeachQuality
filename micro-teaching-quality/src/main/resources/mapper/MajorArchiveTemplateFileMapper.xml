@@ -20,6 +20,13 @@
         from major_archive_template_file
         where id = #{id,jdbcType=INTEGER}
     </select>
+    <select id="selectByPath" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from major_archive_template_file
+        where path = #{path,jdbcType=VARCHAR}
+        limit 1
+    </select>
     <select id="selectAll" resultType="com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveTemplateFile"
             resultMap="BaseResultMap">
         select

@@ -3,11 +3,13 @@ package com.vtmer.microteachingquality.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vtmer.microteachingquality.common.constant.enums.EvaluationProcessStatus;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.exception.CommonRuntimeException;
 import com.vtmer.microteachingquality.common.exception.CustomException;
 import com.vtmer.microteachingquality.mapper.*;
 import com.vtmer.microteachingquality.model.bo.CreateNewMajorBatchVO;
 import com.vtmer.microteachingquality.model.bo.MajorArchiveReviewBO;
+import com.vtmer.microteachingquality.model.dto.file.FileServiceFileObjectDTO;
 import com.vtmer.microteachingquality.model.pojo.User;
 import com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveBatch;
 import com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveFile;
@@ -17,6 +19,7 @@ import com.vtmer.microteachingquality.model.vo.*;
 import com.vtmer.microteachingquality.service.MajorArchiveProcessService;
 import com.vtmer.microteachingquality.util.UserUtil;
 import lombok.SneakyThrows;
+import cn.hutool.core.util.StrUtil;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -56,6 +59,8 @@ public class MajorArchiveProcessServiceImpl extends ServiceImpl<MajorArchiveBatc
     private UserMapper userMapper;
     @Resource
     private MajorArchiveOpinionMapper majorArchiveOpinionMapper;
+    @Resource
+    private FileObjectReferenceService fileObjectReferenceService;
 
     @SneakyThrows
     @Override
@@ -151,6 +156,23 @@ public class MajorArchiveProcessServiceImpl extends ServiceImpl<MajorArchiveBatc
         return majorArchiveBatch.updateById() && majorArchiveFile.insert();
     }
 
+    @Override
+    public Boolean bindUploadedFileRecord(Long fileObjectId, Long majorEvaluationBatchId) {
+        User user = UserUtil.getCurrentUser();
+        FileServiceFileObjectDTO fileObject = fileObjectReferenceService.getFileObject(fileObjectId);
+        if (fileObject == null || StrUtil.isBlank(fileObject.getOriginalName())) {
+            throw new CustomException("文件对象缺少原始文件名");
+        }
+
+        MajorArchiveBatch majorArchiveBatch = majorArchiveBatchMapper.selectById(majorEvaluationBatchId);
+        if (majorArchiveBatch == null) {
+            throw new CustomException("专业归档批次不存在");
+        }
+
+        return uploadFileRecord(user, majorEvaluationBatchId, fileObject.getOriginalName(),
+                fileObjectReferenceService.buildReference(fileObjectId));
+    }
+
     /**
      * 专业归档 删除已经提交的文件
      *
@@ -184,6 +206,17 @@ public class MajorArchiveProcessServiceImpl extends ServiceImpl<MajorArchiveBatc
         return majorArchiveTemplateFileMapper.insert(record);
     }
 
+    @Override
+    public int bindTemplateFileRecord(Long fileObjectId) {
+        User user = UserUtil.getCurrentUser();
+        FileServiceFileObjectDTO fileObject = fileObjectReferenceService.getFileObject(fileObjectId);
+        if (fileObject == null || StrUtil.isBlank(fileObject.getOriginalName())) {
+            throw new CustomException("文件对象缺少原始文件名");
+        }
+        return uploadTemplateFileRecord(user, fileObject.getOriginalName(),
+                fileObjectReferenceService.buildReference(fileObjectId));
+    }
+
     /**
      * 专业归档负责人 删除上传的模板文件记录
      *
@@ -195,6 +228,11 @@ public class MajorArchiveProcessServiceImpl extends ServiceImpl<MajorArchiveBatc
     @Override
     public int deleteTemplateFileRecord(String fileName, String path) {
         return majorArchiveTemplateFileMapper.deleteByFileNameAndPath(fileName, path);
+    }
+
+    @Override
+    public MajorArchiveTemplateFile getTemplateFileByPath(String path) {
+        return majorArchiveTemplateFileMapper.selectByPath(path);
     }
 
     /**
@@ -367,4 +405,3 @@ public class MajorArchiveProcessServiceImpl extends ServiceImpl<MajorArchiveBatc
 
     }
 }
-

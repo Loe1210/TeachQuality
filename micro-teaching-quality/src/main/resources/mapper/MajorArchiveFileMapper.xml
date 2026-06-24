@@ -36,7 +36,8 @@
     <delete id="deleteByUserIdAndPath">
         update major_archive_file
         set is_delete = 1
-        where path = #{path};
+        where user_id = #{userId}
+          and path = #{path};
     </delete>
     <insert id="insertSelective" keyColumn="id" keyProperty="id"
             parameterType="com.vtmer.microteachingquality.model.pojo.majorarchive.MajorArchiveFile"
