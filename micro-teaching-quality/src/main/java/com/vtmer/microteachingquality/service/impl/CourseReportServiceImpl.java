@@ -9,8 +9,10 @@ import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.symmetric.AES;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSON;
+import com.vtmer.microteachingquality.common.component.FileObjectReferenceService;
 import com.vtmer.microteachingquality.common.exception.coursereport.CourseReportTemplateFailUploadException;
 import com.vtmer.microteachingquality.common.exception.coursereport.CourseReportTemplateNotExistException;
+import com.vtmer.microteachingquality.model.dto.file.FileServiceFileObjectDTO;
 import com.vtmer.microteachingquality.common.util.DownloadUtil;
 import com.vtmer.microteachingquality.mapper.ClazzExpertManageInfoMapper;
 import com.vtmer.microteachingquality.mapper.ClazzFileTemplateMapper;
@@ -56,6 +58,8 @@ public class CourseReportServiceImpl implements CourseReportService {
     private ClazzExpertManageInfoMapper clazzExpertManageInfoMapper;
     @Autowired
     private ClazzMapper clazzMapper;
+    @Autowired
+    private FileObjectReferenceService fileObjectReferenceService;
     /**
      * 构建加密
      */
@@ -113,6 +117,12 @@ public class CourseReportServiceImpl implements CourseReportService {
     }
 
     @Override
+    public Integer bindCourseReportTemplate(Long fileObjectId) {
+        FileServiceFileObjectDTO fileObject = fileObjectReferenceService.getFileObject(fileObjectId);
+        return saveCourseReportTemplateReference(fileObject.getOriginalName(), fileObjectReferenceService.buildReference(fileObjectId), currentUserId());
+    }
+
+    @Override
     public Integer saveCourseReportTemplate(MultipartFile file, Clazz clazz) {
         if (ObjectUtil.isNull(file)) {
             throw new CourseReportTemplateFailUploadException("模板文件未上传");
@@ -165,6 +175,17 @@ public class CourseReportServiceImpl implements CourseReportService {
     @Override
     public void getCourseReportTemplate(Integer id, HttpServletRequest request, HttpServletResponse response) {
         ClazzFileTemplate template = clazzFileTemplateMapper.selectByPrimaryKey(id);
+        if (template == null) {
+            throw new CourseReportTemplateNotExistException("课程自评模板文件不存在!");
+        }
+        if (fileObjectReferenceService.isFileObjectReference(template.getPath())) {
+            try {
+                fileObjectReferenceService.writeReferencedFileToResponse(template.getPath(), response);
+                return;
+            } catch (IOException e) {
+                throw new CourseReportTemplateFailUploadException("课程自评报告模板下载失败");
+            }
+        }
         String filePath = reportTemplatePath + File.separator + aes.decryptStr(template.getPath(), CharsetUtil.CHARSET_UTF_8);
         log.info("解密之后的路径:{}", filePath);
         log.info("课程自评报告模板的文件名:{}", template.getName());
@@ -175,6 +196,15 @@ public class CourseReportServiceImpl implements CourseReportService {
     public Integer updateCourseReportTemplate(Integer id, MultipartFile file) {
         if (ObjectUtil.isNull(file)) {
             throw new CourseReportTemplateFailUploadException("上传模板文件未上传");
+        }
+        ClazzFileTemplate existingTemplate = clazzFileTemplateMapper.selectByPrimaryKey(id);
+        if (existingTemplate == null) {
+            throw new CourseReportTemplateNotExistException("课程自评模板文件不存在!");
+        }
+        if (fileObjectReferenceService.isFileObjectReference(existingTemplate.getPath())) {
+            fileObjectReferenceService.deleteReferencedFile(existingTemplate.getPath(), currentUserId());
+        } else {
+            deleteTemplatePhysicalFileIfNecessary(existingTemplate);
         }
         //添加uuid防重
         String uuid = IdUtil.simpleUUID();
@@ -203,6 +233,26 @@ public class CourseReportServiceImpl implements CourseReportService {
             e.printStackTrace();
         }
 
+        return clazzFileTemplateMapper.updateCourseReportTemplate(template);
+    }
+
+    @Override
+    public Integer updateCourseReportTemplate(Integer id, Long fileObjectId) {
+        ClazzFileTemplate existingTemplate = clazzFileTemplateMapper.selectByPrimaryKey(id);
+        if (ObjectUtil.isNull(existingTemplate)) {
+            throw new CourseReportTemplateNotExistException("课程自评模板文件不存在!");
+        }
+        deleteTemplatePhysicalFileIfNecessary(existingTemplate);
+        if (fileObjectReferenceService.isFileObjectReference(existingTemplate.getPath())) {
+            fileObjectReferenceService.deleteReferencedFile(existingTemplate.getPath(), currentUserId());
+        }
+        FileServiceFileObjectDTO fileObject = fileObjectReferenceService.getFileObject(fileObjectId);
+        ClazzFileTemplate template = new ClazzFileTemplate();
+        template.setId(id);
+        template.setUserId(currentUserId());
+        template.setName(fileObject.getOriginalName());
+        template.setPath(fileObjectReferenceService.buildReference(fileObjectId));
+        template.setUpdateTime(new Date());
         return clazzFileTemplateMapper.updateCourseReportTemplate(template);
     }
 
@@ -238,18 +288,10 @@ public class CourseReportServiceImpl implements CourseReportService {
         if (ObjectUtil.isNull(template)) {
             throw new CourseReportTemplateNotExistException("课程自评模板文件不存在!");
         }
-        //文件路径
-        String filePath = reportTemplatePath + File.separator + aes.decryptStr(template.getPath(), CharsetUtil.CHARSET_UTF_8);
-        File file = new File(filePath);
-
-        //先删除文件
-        if (file.delete()) {
-            log.info("文件已被删除:{}", filePath);
-            //文件夹路径
-            String directoryPath = StrUtil.subBefore(filePath, File.separator, true);
-            File directory = new File(directoryPath);
-            //删除文件夹
-            directory.delete();
+        if (fileObjectReferenceService.isFileObjectReference(template.getPath())) {
+            fileObjectReferenceService.deleteReferencedFile(template.getPath(), currentUserId());
+        } else {
+            deleteTemplatePhysicalFileIfNecessary(template);
         }
 
         return clazzFileTemplateMapper.deleteByPrimaryKey(id);
@@ -266,6 +308,39 @@ public class CourseReportServiceImpl implements CourseReportService {
         //todo 自定义一下要返回的信息和内容，然后根据专家id获取要管理的id后再根据id获取clazz信息
 
         return null;
+    }
+
+    private Integer saveCourseReportTemplateReference(String originalName, String referencePath, Integer userId) {
+        ClazzFileTemplate template = new ClazzFileTemplate();
+        template.setName(originalName);
+        template.setPath(referencePath);
+        template.setUserId(userId);
+        Date now = new Date();
+        template.setCreateTime(now);
+        template.setUpdateTime(now);
+        if (clazzFileTemplateMapper.saveCourseReportTemplate(template) <= 0) {
+            throw new CourseReportTemplateFailUploadException("课程自评报告模板上传失败");
+        }
+        return template.getId();
+    }
+
+    private void deleteTemplatePhysicalFileIfNecessary(ClazzFileTemplate template) {
+        if (template == null || template.getPath() == null || fileObjectReferenceService.isFileObjectReference(template.getPath())) {
+            return;
+        }
+        String filePath = reportTemplatePath + File.separator + aes.decryptStr(template.getPath(), CharsetUtil.CHARSET_UTF_8);
+        File file = new File(filePath);
+        if (file.delete()) {
+            log.info("文件已被删除:{}", filePath);
+            String directoryPath = StrUtil.subBefore(filePath, File.separator, true);
+            File directory = new File(directoryPath);
+            directory.delete();
+        }
+    }
+
+    private Integer currentUserId() {
+        User user = JSON.parseObject(JSONUtil.toJsonStr(SecurityContextHolder.getContext().getAuthentication().getPrincipal()), User.class);
+        return user.getId();
     }
 
 }

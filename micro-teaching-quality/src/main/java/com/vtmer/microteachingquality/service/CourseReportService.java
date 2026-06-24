@@ -19,6 +19,8 @@ public interface CourseReportService {
      */
     Integer saveCourseReportTemplate(MultipartFile file);
 
+    Integer bindCourseReportTemplate(Long fileObjectId);
+
     /**
      * 新增课程自评报告
      *
@@ -43,6 +45,8 @@ public interface CourseReportService {
      * @return
      */
     Integer updateCourseReportTemplate(Integer id, MultipartFile file);
+
+    Integer updateCourseReportTemplate(Integer id, Long fileObjectId);
 
     /**
      * 获取所有课程自评模板
